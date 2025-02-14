@@ -1,6 +1,10 @@
 # Base image olarak CUDA destekli PyTorch kullan
 FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-runtime
 
+# Timezone ayarı
+ENV TZ=Europe/Istanbul
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # Çalışma dizinini ayarla
 WORKDIR /app
 
@@ -13,24 +17,22 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Backend bağımlılıklarını kopyala ve yükle
-COPY backend/requirements.txt backend/
-RUN pip install -r backend/requirements.txt
+COPY backend/requirements.txt .
+RUN pip install -r requirements.txt
 
 # Frontend bağımlılıklarını kopyala ve yükle
 COPY frontend/package*.json frontend/
 RUN cd frontend && npm install
 
-# Tüm projeyi kopyala
+# Tüm kaynak kodlarını kopyala
 COPY . .
 
 # Frontend'i build et
 RUN cd frontend && npm run build
 
-# Backend için port aç
+# Port'ları aç
 EXPOSE 8000
-
-# Frontend için port aç
 EXPOSE 3001
 
-# Başlangıç komutunu ayarla
-CMD ["sh", "-c", "cd frontend && npm start & cd backend && python main.py"] 
+# Başlangıç komutu
+CMD cd backend && python main.py & cd frontend && npm start 

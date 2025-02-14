@@ -33,6 +33,10 @@ COPY . .
 # Frontend'i build et
 RUN cd frontend && npm run build
 
+# Başlangıç scriptini oluştur
+RUN echo '#!/bin/bash\ncd /app/backend && python main.py &\ncd /app/frontend && serve -s build -l 3001' > /app/start.sh && \
+    chmod +x /app/start.sh
+
 # Port'ları aç
 EXPOSE 8000
 EXPOSE 3001
@@ -42,4 +46,4 @@ ENV PORT=3001
 ENV HOST=0.0.0.0
 
 # Başlangıç komutu
-CMD cd backend && python main.py & cd frontend && serve -s build -l 3001 
+CMD ["/app/start.sh"] 

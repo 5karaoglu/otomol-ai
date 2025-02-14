@@ -1,0 +1,26 @@
+{
+    "ocak_2025": {
+        "1": [
+            {
+                "marka": "zara man",
+                "uretim_yeri": "çalık",
+                "yukleme_adedi": 10000
+            },
+            {
+                "marka": "zara woman",
+                "uretim_yeri": "smart",
+                "yukleme_adedi": 15000
+            },
+            {
+                "marka": "bershka",
+                "uretim_yeri": "alex",
+                "yukleme_adedi": 20000
+            },
+            {
+                "marka": "urban",
+                "uretim_yeri": "afrika",
+                "yukleme_adedi": 25000
+            }
+        ]
+    }
+} 

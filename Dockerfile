@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
+    && npm install -g serve \
     && rm -rf /var/lib/apt/lists/*
 
 # Backend bağımlılıklarını kopyala ve yükle
@@ -41,4 +42,4 @@ ENV PORT=3001
 ENV HOST=0.0.0.0
 
 # Başlangıç komutu
-CMD cd backend && python main.py & cd frontend && HOST=0.0.0.0 PORT=3001 npm start 
+CMD cd backend && python main.py & cd frontend && serve -s build -l 3001 

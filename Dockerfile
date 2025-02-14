@@ -36,5 +36,9 @@ RUN cd frontend && npm run build
 EXPOSE 8000
 EXPOSE 3001
 
+# Environment variable for React
+ENV PORT=3001
+ENV HOST=0.0.0.0
+
 # Başlangıç komutu
-CMD cd backend && python main.py & cd frontend && npm start 
+CMD cd backend && python main.py & cd frontend && HOST=0.0.0.0 PORT=3001 npm start 

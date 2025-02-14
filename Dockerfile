@@ -34,7 +34,7 @@ COPY . .
 RUN cd frontend && npm run build
 
 # Başlangıç scriptini oluştur
-RUN echo '#!/bin/bash\ncd /app/backend && python main.py &\ncd /app/frontend && serve -s build -l 3001' > /app/start.sh && \
+RUN echo '#!/bin/bash\ncd /app/backend && python main.py &\ncd /app/frontend && serve -s build -l 3001 --host 0.0.0.0' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Port'ları aç

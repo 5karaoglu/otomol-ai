@@ -8,12 +8,14 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # Çalışma dizinini ayarla
 WORKDIR /app
 
-# Sistem bağımlılıklarını yükle
+# Node.js 20.x ve diğer sistem bağımlılıklarını yükle
 RUN apt-get update && apt-get install -y \
+    curl \
     ffmpeg \
-    nodejs \
-    npm \
     git \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest \
     && rm -rf /var/lib/apt/lists/*
 
 # Backend bağımlılıklarını kopyala ve yükle

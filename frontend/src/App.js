@@ -14,6 +14,9 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+const WS_URL = BACKEND_URL.replace('http', 'ws');
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [connection, setConnection] = useState(null);
@@ -26,7 +29,7 @@ function App() {
 
   const connectWebSocket = () => {
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws');
+      const ws = new WebSocket(`${WS_URL}/ws`);
       setConnection(ws);
 
       ws.onopen = () => {
@@ -166,7 +169,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/upload-database', {
+      const response = await fetch(`${BACKEND_URL}/upload-database`, {
         method: 'POST',
         body: formData,
       });

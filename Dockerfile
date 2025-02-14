@@ -30,20 +30,36 @@ RUN cd frontend && npm install
 # Tüm kaynak kodlarını kopyala
 COPY . .
 
+# Environment variable for React and Backend
+ENV PORT=3001
+ENV HOST=0.0.0.0
+ENV REACT_APP_BACKEND_URL=http://90.84.225.124:8000
+
 # Frontend'i build et
-RUN cd frontend && npm run build
+RUN cd frontend && REACT_APP_BACKEND_URL=http://90.84.225.124:8000 npm run build
 
 # Başlangıç scriptini oluştur
-RUN echo '#!/bin/bash\ncd /app/backend && python main.py &\ncd /app/frontend && serve -s build -l 3001 --host 0.0.0.0' > /app/start.sh && \
+RUN echo '#!/bin/bash\n\
+cd /app/backend\n\
+echo "Starting backend..."\n\
+python main.py > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
+BACKEND_PID=$!\n\
+echo "Backend started with PID: $BACKEND_PID"\n\
+sleep 5\n\
+if ps -p $BACKEND_PID > /dev/null; then\n\
+    echo "Backend is running successfully"\n\
+    cd /app/frontend\n\
+    echo "Starting frontend..."\n\
+    exec serve -s build -l 3001\n\
+else\n\
+    echo "Backend failed to start"\n\
+    exit 1\n\
+fi' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Port'ları aç
 EXPOSE 8000
 EXPOSE 3001
-
-# Environment variable for React
-ENV PORT=3001
-ENV HOST=0.0.0.0
 
 # Başlangıç komutu
 CMD ["/app/start.sh"] 

@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     git \
     procps \
     net-tools \
+    supervisor \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
@@ -40,9 +41,30 @@ ENV REACT_APP_BACKEND_URL=http://213.181.123.11:8000
 # Frontend'i build et
 RUN cd frontend && npm run build
 
+# Supervisor yapılandırması
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+\n\
+[program:backend]\n\
+command=python /app/backend/main.py\n\
+directory=/app/backend\n\
+autostart=true\n\
+autorestart=true\n\
+stderr_logfile=/var/log/backend.err.log\n\
+stdout_logfile=/var/log/backend.out.log\n\
+\n\
+[program:frontend]\n\
+command=serve -s build -l tcp://0.0.0.0:3001\n\
+directory=/app/frontend\n\
+autostart=true\n\
+autorestart=true\n\
+stderr_logfile=/var/log/frontend.err.log\n\
+stdout_logfile=/var/log/frontend.out.log\n\
+' > /etc/supervisor/conf.d/supervisord.conf
+
 # Port'ları aç
 EXPOSE 8000
 EXPOSE 3001
 
-# Test komutu
-CMD ["bash", "-c", "cd /app/backend && python main.py & cd /app/frontend && serve -s build -l tcp://0.0.0.0:3001"] 
+# Supervisor ile servisleri başlat
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 

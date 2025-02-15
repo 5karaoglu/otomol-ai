@@ -95,7 +95,6 @@ stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 
 # Nginx yapılandırması
 RUN echo 'server {\n\
-    listen 3001;\n\
     listen 3001 ssl;\n\
     server_name _;\n\
     \n\

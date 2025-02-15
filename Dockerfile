@@ -46,11 +46,11 @@ COPY . .
 # Environment variable for React and Backend
 ENV PORT=3001
 ENV HOST=0.0.0.0
-ENV REACT_APP_BACKEND_URL=http://213.181.123.11:54722
+ENV REACT_APP_BACKEND_URL=https://213.181.123.11:54722
 
 # Frontend'i build et
 RUN cd frontend && \
-    REACT_APP_BACKEND_URL=http://213.181.123.11:54722 npm run build && \
+    REACT_APP_BACKEND_URL=https://213.181.123.11:54722 npm run build && \
     rm -rf /var/www/html/* && \
     cp -r build/* /var/www/html/
 
@@ -95,6 +95,7 @@ stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 
 # Nginx yapılandırması
 RUN echo 'server {\n\
+    listen 3001;\n\
     listen 3001 ssl;\n\
     server_name _;\n\
     \n\

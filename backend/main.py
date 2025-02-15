@@ -245,4 +245,11 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug") 
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        ssl_keyfile="/etc/nginx/ssl/nginx.key",
+        ssl_certfile="/etc/nginx/ssl/nginx.crt",
+        log_level="debug"
+    ) 

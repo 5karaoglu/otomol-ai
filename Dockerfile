@@ -56,14 +56,14 @@ childlogdir=/var/log/supervisor\n\
 user=root\n\
 \n\
 [unix_http_server]\n\
-file=/var/run/supervisor/supervisor.sock\n\
+file=/var/run/supervisor.sock\n\
 chmod=0700\n\
 \n\
 [rpcinterface:supervisor]\n\
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface\n\
 \n\
 [supervisorctl]\n\
-serverurl=unix:///var/run/supervisor/supervisor.sock\n\
+serverurl=unix:///var/run/supervisor.sock\n\
 \n\
 [program:backend]\n\
 command=python /app/backend/main.py\n\

@@ -42,11 +42,23 @@ ENV REACT_APP_BACKEND_URL=http://213.181.123.11:8000
 RUN cd frontend && npm run build
 
 # Supervisor yapılandırması
-RUN mkdir -p /var/log/supervisor && mkdir -p /etc/supervisor/conf.d && echo '[supervisord]\n\
+RUN mkdir -p /var/log/supervisor && \
+    mkdir -p /etc/supervisor/conf.d && \
+    mkdir -p /var/run/supervisor && \
+    echo '[supervisord]\n\
 nodaemon=true\n\
 logfile=/var/log/supervisor/supervisord.log\n\
-pidfile=/var/run/supervisord.pid\n\
+pidfile=/var/run/supervisor/supervisord.pid\n\
 childlogdir=/var/log/supervisor\n\
+\n\
+[unix_http_server]\n\
+file=/var/run/supervisor/supervisor.sock\n\
+\n\
+[rpcinterface:supervisor]\n\
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface\n\
+\n\
+[supervisorctl]\n\
+serverurl=unix:///var/run/supervisor/supervisor.sock\n\
 \n\
 [program:backend]\n\
 command=python /app/backend/main.py\n\
@@ -70,4 +82,4 @@ EXPOSE 8000
 EXPOSE 3001
 
 # Supervisor ile servisleri başlat
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 

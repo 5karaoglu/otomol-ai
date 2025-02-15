@@ -35,10 +35,10 @@ COPY . .
 # Environment variable for React and Backend
 ENV PORT=3001
 ENV HOST=0.0.0.0
-ENV REACT_APP_BACKEND_URL=http://90.84.225.124:8000
+ENV REACT_APP_BACKEND_URL=http://213.181.123.11:8000
 
 # Frontend'i build et
-RUN cd frontend && REACT_APP_BACKEND_URL=http://90.84.225.124:8000 npm run build
+RUN cd frontend && REACT_APP_BACKEND_URL=http://213.181.123.11:8000 npm run build
 
 # Log dosyası oluştur
 RUN mkdir -p /var/log/otomol && touch /var/log/otomol/app.log

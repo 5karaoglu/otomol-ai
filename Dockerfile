@@ -45,4 +45,4 @@ EXPOSE 8000
 EXPOSE 3001
 
 # Test komutu
-CMD ["bash", "-c", "cd /app/backend && python main.py & cd /app/frontend && serve -s build -l 3001 --host 0.0.0.0"] 
+CMD ["bash", "-c", "cd /app/backend && python main.py & cd /app/frontend && serve -s build -l tcp://0.0.0.0:3001"] 

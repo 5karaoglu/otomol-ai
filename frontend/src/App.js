@@ -246,7 +246,7 @@ function App() {
       mainWs = connectWebSocket();
       
       // Hoşgeldin mesajı için yeni WebSocket bağlantısı
-      welcomeWs = new WebSocket('ws://localhost:8000/ws');
+      welcomeWs = new WebSocket(`${WS_URL}/ws`);
       welcomeWs.onopen = () => {
         welcomeWs.send(JSON.stringify({ type: 'welcome' }));
       };

@@ -17,10 +17,20 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     supervisor \
     nginx \
+    certbot \
+    python3-certbot-nginx \
+    openssl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
     && rm -rf /var/lib/apt/lists/*
+
+# SSL sertifikası oluştur
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx.key \
+    -out /etc/nginx/ssl/nginx.crt \
+    -subj "/C=TR/ST=Istanbul/L=Istanbul/O=Otomol/CN=213.181.123.11"
 
 # Backend bağımlılıklarını kopyala ve yükle
 COPY backend/requirements.txt .
@@ -85,10 +95,15 @@ stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 
 # Nginx yapılandırması
 RUN echo 'server {\n\
-    listen 3001;\n\
+    listen 3001 ssl;\n\
     server_name _;\n\
+    \n\
+    ssl_certificate /etc/nginx/ssl/nginx.crt;\n\
+    ssl_certificate_key /etc/nginx/ssl/nginx.key;\n\
+    \n\
     root /var/www/html;\n\
     index index.html;\n\
+    \n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
     }\n\

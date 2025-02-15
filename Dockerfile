@@ -42,24 +42,27 @@ ENV REACT_APP_BACKEND_URL=http://213.181.123.11:8000
 RUN cd frontend && npm run build
 
 # Supervisor yapılandırması
-RUN echo '[supervisord]\n\
+RUN mkdir -p /var/log/supervisor && mkdir -p /etc/supervisor/conf.d && echo '[supervisord]\n\
 nodaemon=true\n\
+logfile=/var/log/supervisor/supervisord.log\n\
+pidfile=/var/run/supervisord.pid\n\
+childlogdir=/var/log/supervisor\n\
 \n\
 [program:backend]\n\
 command=python /app/backend/main.py\n\
 directory=/app/backend\n\
 autostart=true\n\
 autorestart=true\n\
-stderr_logfile=/var/log/backend.err.log\n\
-stdout_logfile=/var/log/backend.out.log\n\
+stderr_logfile=/var/log/supervisor/backend.err.log\n\
+stdout_logfile=/var/log/supervisor/backend.out.log\n\
 \n\
 [program:frontend]\n\
 command=serve -s build -l tcp://0.0.0.0:3001\n\
 directory=/app/frontend\n\
 autostart=true\n\
 autorestart=true\n\
-stderr_logfile=/var/log/frontend.err.log\n\
-stdout_logfile=/var/log/frontend.out.log\n\
+stderr_logfile=/var/log/supervisor/frontend.err.log\n\
+stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 ' > /etc/supervisor/conf.d/supervisord.conf
 
 # Port'ları aç

@@ -54,6 +54,8 @@ if torch.cuda.is_available():
 # Sabit değerler
 BOT_NAME = "OtomolAi"
 USER_NAME = "Osman Bey"
+MARKALAR = ["Mercedes", "BMW", "Audi", "Volkswagen"]
+URETIM_YERLERI = ["İstanbul", "Ankara", "İzmir", "Bursa"]
 
 # Veritabanı
 DATABASE = {}
@@ -236,6 +238,11 @@ Always respond in Turkish and be friendly. [/INST]"""
         logger.error(f"İşleme hatası: {str(e)}")
         return "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
 
+# Root endpoint
+@app.get("/")
+async def root():
+    return {"message": "OtomolAI Backend API"}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug") 

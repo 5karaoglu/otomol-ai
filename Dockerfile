@@ -16,10 +16,10 @@ RUN apt-get update && apt-get install -y \
     procps \
     net-tools \
     supervisor \
+    nginx \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest \
-    && npm install -g serve \
     && rm -rf /var/lib/apt/lists/*
 
 # Backend bağımlılıklarını kopyala ve yükle
@@ -39,7 +39,9 @@ ENV HOST=0.0.0.0
 ENV REACT_APP_BACKEND_URL=http://213.181.123.11:8000
 
 # Frontend'i build et
-RUN cd frontend && npm run build
+RUN cd frontend && npm run build && \
+    rm -rf /var/www/html/* && \
+    cp -r build/* /var/www/html/
 
 # Supervisor yapılandırması
 RUN mkdir -p /var/log/supervisor && \
@@ -72,13 +74,24 @@ stderr_logfile=/var/log/supervisor/backend.err.log\n\
 stdout_logfile=/var/log/supervisor/backend.out.log\n\
 \n\
 [program:frontend]\n\
-command=serve -s build -l tcp://0.0.0.0:3001\n\
+command=nginx -g "daemon off;"\n\
 directory=/app/frontend\n\
 autostart=true\n\
 autorestart=true\n\
 stderr_logfile=/var/log/supervisor/frontend.err.log\n\
 stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 ' > /etc/supervisor/conf.d/supervisord.conf
+
+# Nginx yapılandırması
+RUN echo 'server {\n\
+    listen 3001;\n\
+    server_name _;\n\
+    root /var/www/html;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+}\n' > /etc/nginx/conf.d/default.conf
 
 # Port'ları aç
 EXPOSE 8000

@@ -16,6 +16,8 @@ import StopIcon from '@mui/icons-material/Stop';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://213.181.123.11:54722';
 const WS_URL = BACKEND_URL.replace('http', 'ws');
+console.log('Backend URL:', BACKEND_URL);
+console.log('WebSocket URL:', WS_URL);
 
 function App() {
   const [messages, setMessages] = useState([]);
@@ -73,7 +75,9 @@ function App() {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket hatası:', error);
+        console.error('WebSocket hatası detayları:', error);
+        console.error('WebSocket bağlantı durumu:', ws.readyState);
+        console.error('Bağlanmaya çalışılan URL:', `${WS_URL}/ws`);
         setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı hatası oluştu' }]);
       };
 

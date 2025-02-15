@@ -45,12 +45,12 @@ echo "Starting backend..."\n\
 python main.py > /proc/1/fd/1 2>/proc/1/fd/2 &\n\
 BACKEND_PID=$!\n\
 echo "Backend started with PID: $BACKEND_PID"\n\
-sleep 5\n\
+sleep 10\n\
 if ps -p $BACKEND_PID > /dev/null; then\n\
     echo "Backend is running successfully"\n\
     cd /app/frontend\n\
     echo "Starting frontend..."\n\
-    exec serve -s build -l 3001\n\
+    exec serve -s build -l 3001 --host 0.0.0.0\n\
 else\n\
     echo "Backend failed to start"\n\
     exit 1\n\

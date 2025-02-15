@@ -44,23 +44,24 @@ RUN cd frontend && npm run build
 # Supervisor yapılandırması
 RUN mkdir -p /var/log/supervisor && \
     mkdir -p /etc/supervisor/conf.d && \
-    mkdir -p /run/supervisor && \
+    mkdir -p /var/run/supervisor && \
+    ln -s /var/run /run && \
     echo '[supervisord]\n\
 nodaemon=true\n\
 logfile=/var/log/supervisor/supervisord.log\n\
-pidfile=/run/supervisor/supervisord.pid\n\
+pidfile=/var/run/supervisor/supervisord.pid\n\
 childlogdir=/var/log/supervisor\n\
 user=root\n\
 \n\
 [unix_http_server]\n\
-file=/run/supervisor/supervisor.sock\n\
+file=/var/run/supervisor/supervisor.sock\n\
 chmod=0700\n\
 \n\
 [rpcinterface:supervisor]\n\
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface\n\
 \n\
 [supervisorctl]\n\
-serverurl=unix:///run/supervisor/supervisor.sock\n\
+serverurl=unix:///var/run/supervisor/supervisor.sock\n\
 \n\
 [program:backend]\n\
 command=python /app/backend/main.py\n\

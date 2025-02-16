@@ -230,16 +230,21 @@ async def process_query(query: str) -> str:
     
     try:
         # 1. Bağlam Oluşturma
-        context = generate_context()  # async kaldırıldı çünkü generate_context async değil
+        context = generate_context()
         logger.info(f"Oluşturulan context: {context}")
         
         # 2. DeepSeek Özel Prompt Formatı
-        system_prompt = """Sen Türkçe konuşan bir yapay zeka asistanısın. Verilen bağlam bilgilerini kullanarak soruları yanıtlayacaksın. Her zaman Türkçe yanıt vereceksin."""
-        
+        system_prompt = """Sen OtomolAI adında bir yapay zeka asistanısın. Otomotiv sektöründe üretim ve yükleme verileri konusunda uzmansın. 
+Konuştuğun kişinin adı Osman Bey. Her zaman Türkçe, net ve profesyonel yanıtlar verirsin.
+Verilen bağlam bilgilerini kullanarak soruları detaylı şekilde yanıtlarsın.
+Eğer bir sorunun cevabını bilmiyorsan veya bağlam bilgisinde yoksa, dürüstçe bilmediğini söylersin."""
+
         user_prompt = f"""Bağlam Bilgisi:
 {context}
 
 Soru: {query}
+
+Lütfen yukarıdaki soruyu bağlam bilgilerini kullanarak detaylı bir şekilde yanıtla.
 
 Yanıt:"""
         
@@ -250,19 +255,21 @@ Yanıt:"""
         try:
             # 4. Tokenization ve Model Çıktısı
             logger.info("Tokenization başlıyor...")
-            inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
+            inputs = tokenizer(full_prompt, return_tensors="pt")
+            inputs = inputs.to(model.device)
             logger.info("Tokenization tamamlandı")
             
             logger.info("Model çıktısı üretiliyor...")
             outputs = model.generate(
                 inputs.input_ids,
-                max_length=4096,  # Token limitini artırdık
+                max_length=4096,
                 do_sample=True,
-                temperature=0.7,
-                top_p=0.95,
-                top_k=50,
+                temperature=0.3,  # Daha tutarlı yanıtlar için düşürüldü
+                top_p=0.85,      # Daha odaklı yanıtlar için düşürüldü
+                top_k=40,        # Daha odaklı yanıtlar için düşürüldü
                 repetition_penalty=1.2,
-                num_return_sequences=1
+                num_return_sequences=1,
+                min_length=50    # Minimum yanıt uzunluğu
             )
             logger.info("Model çıktısı üretildi")
             
@@ -270,8 +277,12 @@ Yanıt:"""
             logger.info("Yanıt decode ediliyor...")
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             answer = response.split("Yanıt:")[-1].strip()
-            logger.info(f"Final yanıt: {answer}")
             
+            # Yanıt kontrolü
+            if not answer or len(answer) < 10:
+                answer = "Üzgünüm, sorunuzu tam olarak anlayamadım. Lütfen sorunuzu daha açık bir şekilde sorar mısınız?"
+            
+            logger.info(f"Final yanıt: {answer}")
             return answer
             
         except Exception as model_error:

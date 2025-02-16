@@ -6,7 +6,7 @@ torch>=2.1.0
 torchvision>=0.16.0
 torchaudio>=2.1.0
 transformers==4.31.0
-SpeechRecognition==3.8.1
+SpeechRecognition==3.14.1
 gTTS==2.2.4
 python-jose==3.3.0
 sentencepiece==0.1.99

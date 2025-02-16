@@ -256,7 +256,7 @@ Yanıt:"""
             logger.info("Model çıktısı üretiliyor...")
             outputs = model.generate(
                 inputs.input_ids,
-                max_length=1024,
+                max_length=4096,  # Token limitini artırdık
                 do_sample=True,
                 temperature=0.7,
                 top_p=0.95,

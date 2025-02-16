@@ -229,8 +229,8 @@ async def process_query(query: str) -> str:
     logger.info(f"İşlenen soru: {query}")
     
     try:
-        # 1. Bağlam Oluşturma (Örnek fonksiyon)
-        context = await generate_context()  # Async uyumlu hale getirildi
+        # 1. Bağlam Oluşturma
+        context = generate_context()  # async kaldırıldı çünkü generate_context async değil
         logger.info(f"Oluşturulan context: {context}")
         
         # 2. DeepSeek Özel Prompt Formatı
@@ -245,29 +245,41 @@ Yanıt:"""
         
         # 3. Prompt'u birleştir
         full_prompt = f"{system_prompt}\n\n{user_prompt}"
+        logger.info(f"Oluşturulan tam prompt: {full_prompt}")
         
-        # 4. Tokenization ve Model Çıktısı
-        inputs = tokenizer(full_prompt, return_tensors="pt")
-        outputs = model.generate(
-            inputs.input_ids,
-            max_length=1024,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.95,
-            top_k=50,
-            repetition_penalty=1.2,
-            num_return_sequences=1
-        )
-        
-        # 5. Yanıtı Ayıkla
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        answer = response.split("Yanıt:")[-1].strip()
-        logger.info(f"Model yanıtı: {answer}")
-        
-        return answer
+        try:
+            # 4. Tokenization ve Model Çıktısı
+            logger.info("Tokenization başlıyor...")
+            inputs = tokenizer(full_prompt, return_tensors="pt").to(model.device)
+            logger.info("Tokenization tamamlandı")
+            
+            logger.info("Model çıktısı üretiliyor...")
+            outputs = model.generate(
+                inputs.input_ids,
+                max_length=1024,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.95,
+                top_k=50,
+                repetition_penalty=1.2,
+                num_return_sequences=1
+            )
+            logger.info("Model çıktısı üretildi")
+            
+            # 5. Yanıtı Ayıkla
+            logger.info("Yanıt decode ediliyor...")
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            answer = response.split("Yanıt:")[-1].strip()
+            logger.info(f"Final yanıt: {answer}")
+            
+            return answer
+            
+        except Exception as model_error:
+            logger.error(f"Model işleme hatası: {str(model_error)}")
+            raise
         
     except Exception as e:
-        logger.error(f"Soru işleme hatası: {str(e)}")
+        logger.error(f"Soru işleme hatası: {str(e)}", exc_info=True)
         return "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
     
 # Root endpoint

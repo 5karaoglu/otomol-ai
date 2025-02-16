@@ -25,12 +25,8 @@ RUN apt-get update && apt-get install -y \
     && npm install -g npm@latest \
     && rm -rf /var/lib/apt/lists/*
 
-# SSL sertifikası oluştur
-RUN mkdir -p /etc/nginx/ssl && \
-    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/nginx.key \
-    -out /etc/nginx/ssl/nginx.crt \
-    -subj "/C=TR/ST=Istanbul/L=Istanbul/O=Otomol/CN=213.181.123.11"
+# SSL dizini oluştur
+RUN mkdir -p /etc/nginx/ssl
 
 # Backend bağımlılıklarını kopyala ve yükle
 COPY backend/requirements.txt .
@@ -46,11 +42,11 @@ COPY . .
 # Environment variable for React and Backend
 ENV PORT=3001
 ENV HOST=0.0.0.0
-ENV REACT_APP_BACKEND_URL=https://213.181.123.11:54722
+ENV REACT_APP_BACKEND_URL=http://213.181.123.11:54722
 
 # Frontend'i build et
 RUN cd frontend && \
-    REACT_APP_BACKEND_URL=https://213.181.123.11:54722 npm run build && \
+    REACT_APP_BACKEND_URL=http://213.181.123.11:54722 npm run build && \
     rm -rf /var/www/html/* && \
     cp -r build/* /var/www/html/
 
@@ -95,11 +91,8 @@ stdout_logfile=/var/log/supervisor/frontend.out.log\n\
 
 # Nginx yapılandırması
 RUN echo 'server {\n\
-    listen 3001 ssl;\n\
+    listen 3001;\n\
     server_name _;\n\
-    \n\
-    ssl_certificate /etc/nginx/ssl/nginx.crt;\n\
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;\n\
     \n\
     root /var/www/html;\n\
     index index.html;\n\
@@ -110,11 +103,8 @@ RUN echo 'server {\n\
 }\n\
 \n\
 server {\n\
-    listen 8000 ssl;\n\
+    listen 8000;\n\
     server_name _;\n\
-    \n\
-    ssl_certificate /etc/nginx/ssl/nginx.crt;\n\
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;\n\
     \n\
     location / {\n\
         proxy_pass http://localhost:8001;\n\

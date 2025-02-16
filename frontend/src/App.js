@@ -14,8 +14,8 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'https://213.181.123.11:54722';
-const WS_URL = BACKEND_URL.replace('https', 'wss');
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://213.181.123.11:54722';
+const WS_URL = BACKEND_URL.replace('http', 'ws');
 console.log('Backend URL:', BACKEND_URL);
 console.log('WebSocket URL:', WS_URL);
 

@@ -1,26 +1,26 @@
-from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, WebSocket, UploadFile, File, HTTPException # type: ignore
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
 import json
 import random
 from datetime import datetime
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
-import speech_recognition as sr
-from gtts import gTTS
+import torch # type: ignore
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline # type: ignore
+import speech_recognition as sr # type: ignore
+from gtts import gTTS # type: ignore
 import os
 import base64
 import tempfile
 import logging
 import subprocess
 import argparse
-import uvicorn
+import uvicorn # type: ignore
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # LLM model ve tokenizer yükleme
-MODEL_NAME = "bigscience/bloom-7b1"  # BLOOM modelini kullanıyoruz
+MODEL_NAME = "deepseek-ai/deepseek-llm-7b-chat"
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
@@ -224,40 +224,43 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket bağlantı hatası: {str(e)}")
         raise
 
-async def process_query(query: str):
+async def process_query(query: str) -> str:
     query = query.lower()
     logger.info(f"İşlenen soru: {query}")
     
     try:
-        # Veritabanı bilgilerini metin haline getir
-        context = generate_context()
+        # 1. Bağlam Oluşturma (Örnek fonksiyon)
+        context = await generate_context()  # Async uyumlu hale getirildi
         logger.info(f"Oluşturulan context: {context}")
         
-        # Türkçe prompt oluştur
-        prompt = f"""Bağlam Bilgisi:
+        # 2. DeepSeek Özel Prompt Formatı
+        system_prompt = """Sen Türkçe konuşan bir yapay zeka asistanısın. Verilen bağlam bilgilerini kullanarak soruları yanıtlayacaksın. Her zaman Türkçe yanıt vereceksin."""
+        
+        user_prompt = f"""Bağlam Bilgisi:
 {context}
 
 Soru: {query}
 
-Yanıt: Bir yapay zeka asistanı olarak, yukarıdaki soruyu Türkçe olarak yanıtlayacağım. Veritabanı ile ilgili sorularda sadece verilen bağlam bilgisini kullanacağım.
-
-"""
+Yanıt:"""
         
-        logger.info(f"Oluşturulan prompt: {prompt}")
+        # 3. Prompt'u birleştir
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
         
-        # BLOOM ile yanıt oluştur
-        response = llm_pipeline(
-            prompt,
-            max_length=2048,
+        # 4. Tokenization ve Model Çıktısı
+        inputs = tokenizer(full_prompt, return_tensors="pt")
+        outputs = model.generate(
+            inputs.input_ids,
+            max_length=1024,
             do_sample=True,
             temperature=0.7,
             top_p=0.95,
             top_k=50,
             repetition_penalty=1.2,
             num_return_sequences=1
-        )[0]['generated_text']
+        )
         
-        # Yanıtı ayıkla
+        # 5. Yanıtı Ayıkla
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
         answer = response.split("Yanıt:")[-1].strip()
         logger.info(f"Model yanıtı: {answer}")
         
@@ -266,7 +269,7 @@ Yanıt: Bir yapay zeka asistanı olarak, yukarıdaki soruyu Türkçe olarak yan�
     except Exception as e:
         logger.error(f"Soru işleme hatası: {str(e)}")
         return "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
-
+    
 # Root endpoint
 @app.get("/")
 async def root():

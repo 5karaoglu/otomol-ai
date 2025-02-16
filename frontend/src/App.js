@@ -32,7 +32,9 @@ function App() {
   const connectWebSocket = () => {
     try {
       console.log('WebSocket bağlantısı başlatılıyor:', `${WS_URL}/ws`);
-      const ws = new WebSocket(`${WS_URL}/ws`);
+      const ws = new WebSocket(`${WS_URL}/ws`, [], {
+        rejectUnauthorized: false
+      });
       setConnection(ws);
 
       ws.onopen = () => {

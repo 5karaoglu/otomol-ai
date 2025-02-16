@@ -224,7 +224,19 @@ function App() {
     } else {
       // Yeni kayıt başlat
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (!navigator.mediaDevices) {
+          throw new Error('Tarayıcınız mikrofon erişimini desteklemiyor. Lütfen HTTPS kullanın veya güvenilir bir bağlantı kurun.');
+        }
+
+        // Mikrofon izni iste
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          }
+        });
+
         mediaRecorder.current = new MediaRecorder(stream, {
           mimeType: 'audio/webm;codecs=opus'
         });
@@ -255,10 +267,14 @@ function App() {
 
         mediaRecorder.current.start();
         setIsRecording(true);
+        setMessages(prev => [...prev, { type: 'system', text: 'Kayıt başladı. Konuşabilirsiniz.' }]);
 
       } catch (error) {
         console.error('Mikrofon erişim hatası:', error);
-        setMessages(prev => [...prev, { type: 'error', text: 'Mikrofon hatası: ' + error.message }]);
+        setMessages(prev => [...prev, { 
+          type: 'error', 
+          text: `Mikrofon hatası: ${error.message || 'Mikrofon erişimi sağlanamadı. Lütfen tarayıcı izinlerini kontrol edin.'}`
+        }]);
         setIsRecording(false);
       }
     }

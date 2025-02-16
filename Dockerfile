@@ -1,16 +1,18 @@
 # Base image olarak CUDA destekli PyTorch kullan
-FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-runtime
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
 
 # Timezone ayarı
 ENV TZ=Europe/Istanbul
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# Build araçları ve sistem bağımlılıklarını yükle
+# Python 3.10 ve pip kur
 RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
     build-essential \
     gcc \
     g++ \
-    python3-dev \
     curl \
     ffmpeg \
     git \
@@ -21,6 +23,7 @@ RUN apt-get update && apt-get install -y \
     certbot \
     python3-certbot-nginx \
     openssl \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Node.js 20.x yükle
@@ -33,6 +36,10 @@ RUN mkdir -p /etc/nginx/ssl
 
 # Çalışma dizinini ayarla
 WORKDIR /app
+
+# Pip'i güncelle ve wheel kur
+RUN python3 -m pip install --upgrade pip && \
+    pip install wheel
 
 # Backend bağımlılıklarını kopyala ve yükle
 COPY backend/requirements.txt .
@@ -49,6 +56,12 @@ COPY . .
 ENV PORT=3001
 ENV HOST=0.0.0.0
 ENV REACT_APP_BACKEND_URL=http://213.181.123.11:54722
+
+# CUDA ve PyTorch environment değişkenleri
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+ENV TORCH_CUDA_ARCH_LIST="8.6"
 
 # Frontend'i build et
 RUN cd frontend && \

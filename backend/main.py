@@ -40,7 +40,7 @@ app = FastAPI()
 # CORS ayarları
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Geliştirme aşamasında tüm originlere izin verelim
+    allow_origins=["*"],  # Tüm originlere izin ver
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

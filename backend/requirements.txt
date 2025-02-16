@@ -1,22 +1,22 @@
-fastapi==0.68.1
-uvicorn[standard]>=0.15.0
-python-multipart==0.0.5
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
 --extra-index-url https://download.pytorch.org/whl/cu121
 torch>=2.1.0
 torchvision>=0.16.0
 torchaudio>=2.1.0
-transformers==4.31.0
+transformers>=4.35.2
 SpeechRecognition==3.14.1
-gTTS==2.2.4
-python-jose==3.3.0
-sentencepiece==0.1.99
-accelerate==0.21.0
-bitsandbytes==0.41.1
-scipy==1.11.2
-numpy==1.24.3
-websockets>=10.4
+gTTS==2.5.4
+python-jose>=3.3.0
+sentencepiece>=0.1.99
+accelerate>=0.24.1
+bitsandbytes>=0.41.1
+scipy>=1.11.3
+numpy>=1.24.3
+websockets>=12.0
 wsproto>=1.2.0
-httptools>=0.5.0 --no-binary=:all: --only-binary=httptools
-h11>=0.13.0
-websocket-client>=1.6.1
+httptools>=0.6.1
+h11>=0.14.0
+websocket-client>=1.6.4
 xformers>=0.0.22.post7 

@@ -268,15 +268,26 @@ Yanıt:"""
             # 4. Tokenization ve Model Çıktısı
             logger.info("Tokenization başlıyor...")
             
-            # Önce Türkçe tokenizer ile analiz
+            # Türkçe tokenizer ile metin analizi ve ön işleme
             if turkish_tokenizer:
+                # Metni Türkçe token'lara ayır
                 turkish_tokens = turkish_tokenizer.tokenize(full_prompt)
                 logger.info(f"Türkçe tokenizer sonucu: {len(turkish_tokens)} token")
+                
+                # Özel Türkçe karakterleri ve yapıları kontrol et
+                special_chars = ['ğ', 'Ğ', 'ı', 'İ', 'ö', 'Ö', 'ü', 'Ü', 'ş', 'Ş', 'ç', 'Ç']
+                has_special_chars = any(char in full_prompt for char in special_chars)
+                
+                if has_special_chars:
+                    logger.info("Metinde Türkçe özel karakterler bulundu")
+                    # Türkçe karakterleri koruyarak tokenization yap
+                    full_prompt = " ".join(turkish_tokens)
+                    logger.info("Metin Türkçe tokenizer ile yeniden birleştirildi")
             
             # Ana model için tokenization
             inputs = tokenizer(full_prompt, return_tensors="pt")
             inputs = inputs.to(model.device)
-            logger.info("Tokenization tamamlandı")
+            logger.info("Ana model tokenization tamamlandı")
             
             logger.info("Model çıktısı üretiliyor...")
             outputs = model.generate(
@@ -292,10 +303,42 @@ Yanıt:"""
             )
             logger.info("Model çıktısı üretildi")
             
-            # 5. Yanıtı Ayıkla
+            # 5. Yanıtı Ayıkla ve Türkçe Karakterleri Düzelt
             logger.info("Yanıt decode ediliyor...")
             response = tokenizer.decode(outputs[0], skip_special_tokens=True)
             answer = response.split("Yanıt:")[-1].strip()
+            
+            # Türkçe karakter düzeltmeleri
+            if turkish_tokenizer:
+                # Yaygın Türkçe karakter hataları düzeltme
+                turkish_fixes = {
+                    'yapiyorum': 'yapıyorum',
+                    'geliyorum': 'geliyorum',
+                    'gidiyorum': 'gidiyorum',
+                    'biliyorum': 'biliyorum',
+                    'diyorum': 'diyorum',
+                    'soyluyorum': 'söylüyorum',
+                    'goruyorum': 'görüyorum',
+                    'istiyorum': 'istiyorum',
+                    'dusunuyorum': 'düşünüyorum',
+                    'yaziyorum': 'yazıyorum',
+                    'konusuyorum': 'konuşuyorum',
+                    'bulunuyor': 'bulunuyor',
+                    'uretiliyor': 'üretiliyor',
+                    'yukleniyor': 'yükleniyor',
+                    'basliyor': 'başlıyor',
+                    'basarili': 'başarılı',
+                    'lutfen': 'lütfen',
+                    'uzgunum': 'üzgünüm',
+                    'tesekkur': 'teşekkür',
+                    'arac': 'araç',
+                    'sayisi': 'sayısı',
+                    'gun': 'gün',
+                    'urun': 'ürün'
+                }
+                
+                for wrong, correct in turkish_fixes.items():
+                    answer = answer.replace(wrong, correct)
             
             # Yanıt kontrolü
             if not answer or len(answer) < 10:

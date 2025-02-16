@@ -5,6 +5,12 @@ FROM pytorch/pytorch:2.1.1-cuda12.1-cudnn8-runtime
 ENV TZ=Europe/Istanbul
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# NVIDIA araçlarını yükle
+RUN apt-get update && apt-get install -y \
+    nvidia-cuda-toolkit \
+    cuda-toolkit-12-1 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Çalışma dizinini ayarla
 WORKDIR /app
 

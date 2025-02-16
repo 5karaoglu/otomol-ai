@@ -21,12 +21,23 @@ logger = logging.getLogger(__name__)
 
 # LLM model ve tokenizer yükleme
 MODEL_NAME = "deepseek-ai/deepseek-llm-7b-chat"
+TURKISH_TOKENIZER_NAME = "dbmdz/bert-base-turkish-cased"
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
 device_map = "auto"
 torch_dtype = torch.float16  # fp16 kullan
 
+# Türkçe tokenizer ve model yükleme
+try:
+    logger.info("Türkçe tokenizer yükleniyor...")
+    turkish_tokenizer = AutoTokenizer.from_pretrained(TURKISH_TOKENIZER_NAME)
+    logger.info("Türkçe tokenizer başarıyla yüklendi")
+except Exception as e:
+    logger.error(f"Türkçe tokenizer yükleme hatası: {str(e)}")
+    turkish_tokenizer = None
+
+logger.info("Ana model yükleniyor...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -34,6 +45,7 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch_dtype,
     load_in_8bit=True,  # 8-bit quantization
 )
+logger.info("Ana model başarıyla yüklendi")
 
 # Text generation pipeline oluştur
 llm_pipeline = pipeline(
@@ -255,6 +267,13 @@ Yanıt:"""
         try:
             # 4. Tokenization ve Model Çıktısı
             logger.info("Tokenization başlıyor...")
+            
+            # Önce Türkçe tokenizer ile analiz
+            if turkish_tokenizer:
+                turkish_tokens = turkish_tokenizer.tokenize(full_prompt)
+                logger.info(f"Türkçe tokenizer sonucu: {len(turkish_tokens)} token")
+            
+            # Ana model için tokenization
             inputs = tokenizer(full_prompt, return_tensors="pt")
             inputs = inputs.to(model.device)
             logger.info("Tokenization tamamlandı")
@@ -264,12 +283,12 @@ Yanıt:"""
                 inputs.input_ids,
                 max_length=4096,
                 do_sample=True,
-                temperature=0.3,  # Daha tutarlı yanıtlar için düşürüldü
-                top_p=0.85,      # Daha odaklı yanıtlar için düşürüldü
-                top_k=40,        # Daha odaklı yanıtlar için düşürüldü
+                temperature=0.3,
+                top_p=0.85,
+                top_k=40,
                 repetition_penalty=1.2,
                 num_return_sequences=1,
-                min_length=50    # Minimum yanıt uzunluğu
+                min_length=50
             )
             logger.info("Model çıktısı üretildi")
             

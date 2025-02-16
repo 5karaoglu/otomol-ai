@@ -11,4 +11,5 @@ soundfile==0.12.1
 numpy==1.26.2
 speechrecognition==3.10.0
 gTTS==2.4.0
-pydantic==2.5.2 
+pydantic==2.5.2
+bitsandbytes 

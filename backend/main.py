@@ -21,19 +21,27 @@ logger = logging.getLogger(__name__)
 
 # LLM model ve tokenizer yükleme
 MODEL_NAME = "NousResearch/Llama-2-7b-chat-hf"
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 
-# GPU kullanılabilirse modeli GPU'ya taşı
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model.to(device)
+# GPU bellek optimizasyonları
+torch.cuda.empty_cache()
+device_map = "auto"
+torch_dtype = torch.float16  # fp16 kullan
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME,
+    device_map=device_map,
+    torch_dtype=torch_dtype,
+    load_in_8bit=True,  # 8-bit quantization
+)
 
 # Text generation pipeline oluştur
 llm_pipeline = pipeline(
     "text-generation",
     model=model,
     tokenizer=tokenizer,
-    device=0 if torch.cuda.is_available() else -1
+    device_map=device_map,
+    torch_dtype=torch_dtype
 )
 
 app = FastAPI()
@@ -52,6 +60,8 @@ print("GPU kullanılabilir mi:", torch.cuda.is_available())
 print("Kullanılabilir GPU sayısı:", torch.cuda.device_count())
 if torch.cuda.is_available():
     print("Kullanılan GPU:", torch.cuda.get_device_name(0))
+    print("Kullanılabilir GPU belleği:", torch.cuda.get_device_properties(0).total_memory / 1024**3, "GB")
+    print("Kullanılan GPU belleği:", torch.cuda.memory_allocated(0) / 1024**3, "GB")
 
 # Sabit değerler
 BOT_NAME = "OtomolAi"

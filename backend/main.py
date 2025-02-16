@@ -12,6 +12,7 @@ import base64
 import tempfile
 import logging
 import subprocess
+import argparse
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
@@ -262,11 +263,13 @@ async def root():
     return {"message": "OtomolAI Backend API"}
 
 if __name__ == "__main__":
-    import uvicorn
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8001)
+    args = parser.parse_args()
     
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=args.port,
         log_level="debug"
     ) 

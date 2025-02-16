@@ -20,38 +20,51 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # LLM model ve tokenizer yükleme
-MODEL_NAME = "deepseek-ai/deepseek-llm-7b-chat"
-TURKISH_TOKENIZER_NAME = "dbmdz/bert-base-turkish-cased"
+TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
+GENERATION_MODEL_NAME = "ai-forever/mGPT"  # Çok dilli GPT modeli
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
 device_map = "auto"
 torch_dtype = torch.float16  # fp16 kullan
 
-# Türkçe tokenizer ve model yükleme
+# Türkçe BERT model ve tokenizer yükleme
 try:
-    logger.info("Türkçe tokenizer yükleniyor...")
-    turkish_tokenizer = AutoTokenizer.from_pretrained(TURKISH_TOKENIZER_NAME)
-    logger.info("Türkçe tokenizer başarıyla yüklendi")
+    logger.info("Türkçe BERT model ve tokenizer yükleniyor...")
+    turkish_tokenizer = AutoTokenizer.from_pretrained(TURKISH_MODEL_NAME)
+    turkish_model = AutoModelForCausalLM.from_pretrained(
+        TURKISH_MODEL_NAME,
+        device_map=device_map,
+        torch_dtype=torch_dtype,
+        load_in_8bit=True
+    )
+    logger.info("Türkçe BERT model ve tokenizer başarıyla yüklendi")
 except Exception as e:
-    logger.error(f"Türkçe tokenizer yükleme hatası: {str(e)}")
+    logger.error(f"Türkçe model yükleme hatası: {str(e)}")
+    turkish_model = None
     turkish_tokenizer = None
 
-logger.info("Ana model yükleniyor...")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_NAME,
-    device_map=device_map,
-    torch_dtype=torch_dtype,
-    load_in_8bit=True,  # 8-bit quantization
-)
-logger.info("Ana model başarıyla yüklendi")
+# Üretim modeli yükleme
+try:
+    logger.info("Üretim modeli yükleniyor...")
+    generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
+    generation_model = AutoModelForCausalLM.from_pretrained(
+        GENERATION_MODEL_NAME,
+        device_map=device_map,
+        torch_dtype=torch_dtype,
+        load_in_8bit=True
+    )
+    logger.info("Üretim modeli başarıyla yüklendi")
+except Exception as e:
+    logger.error(f"Üretim modeli yükleme hatası: {str(e)}")
+    generation_model = None
+    generation_tokenizer = None
 
 # Text generation pipeline oluştur
-llm_pipeline = pipeline(
+generation_pipeline = pipeline(
     "text-generation",
-    model=model,
-    tokenizer=tokenizer,
+    model=generation_model,
+    tokenizer=generation_tokenizer,
     device_map=device_map,
     torch_dtype=torch_dtype,
     max_length=2048,
@@ -60,7 +73,7 @@ llm_pipeline = pipeline(
     top_p=0.95,
     top_k=50,
     repetition_penalty=1.2
-)
+) if generation_model else None
 
 app = FastAPI()
 
@@ -245,111 +258,72 @@ async def process_query(query: str) -> str:
         context = generate_context()
         logger.info(f"Oluşturulan context: {context}")
         
-        # 2. DeepSeek Özel Prompt Formatı
-        system_prompt = """Sen OtomolAI adında bir yapay zeka asistanısın. Otomotiv sektöründe üretim ve yükleme verileri konusunda uzmansın. 
-Konuştuğun kişinin adı Osman Bey. Her zaman Türkçe, net ve profesyonel yanıtlar verirsin.
-Verilen bağlam bilgilerini kullanarak soruları detaylı şekilde yanıtlarsın.
-Eğer bir sorunun cevabını bilmiyorsan veya bağlam bilgisinde yoksa, dürüstçe bilmediğini söylersin."""
+        if not turkish_model or not generation_model:
+            return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
+        
+        # 2. BERT ile anlama
+        bert_prompt = f"""Soru: {query}
+Bağlam: {context}"""
+        
+        # BERT tokenization ve çıktı
+        bert_inputs = turkish_tokenizer(
+            bert_prompt,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding=True
+        ).to(turkish_model.device)
+        
+        bert_outputs = turkish_model(**bert_inputs)
+        bert_embeddings = bert_outputs.last_hidden_state
+        
+        # 3. GPT ile yanıt üretme
+        gpt_prompt = f"""Sen OtomolAI adında bir yapay zeka asistanısın. 
+Konuştuğun kişinin adı Osman Bey. 
+Aşağıdaki soruyu bağlam bilgilerini kullanarak detaylı bir şekilde yanıtla.
 
-        user_prompt = f"""Bağlam Bilgisi:
+Bağlam Bilgisi:
 {context}
 
 Soru: {query}
 
-Lütfen yukarıdaki soruyu bağlam bilgilerini kullanarak detaylı bir şekilde yanıtla.
-
 Yanıt:"""
         
-        # 3. Prompt'u birleştir
-        full_prompt = f"{system_prompt}\n\n{user_prompt}"
-        logger.info(f"Oluşturulan tam prompt: {full_prompt}")
+        gpt_inputs = generation_tokenizer(
+            gpt_prompt,
+            return_tensors="pt",
+            max_length=2048,
+            truncation=True
+        ).to(generation_model.device)
         
-        try:
-            # 4. Tokenization ve Model Çıktısı
-            logger.info("Tokenization başlıyor...")
-            
-            # Türkçe tokenizer ile metin analizi ve ön işleme
-            if turkish_tokenizer:
-                # Metni Türkçe token'lara ayır
-                turkish_tokens = turkish_tokenizer.tokenize(full_prompt)
-                logger.info(f"Türkçe tokenizer sonucu: {len(turkish_tokens)} token")
-                
-                # Özel Türkçe karakterleri ve yapıları kontrol et
-                special_chars = ['ğ', 'Ğ', 'ı', 'İ', 'ö', 'Ö', 'ü', 'Ü', 'ş', 'Ş', 'ç', 'Ç']
-                has_special_chars = any(char in full_prompt for char in special_chars)
-                
-                if has_special_chars:
-                    logger.info("Metinde Türkçe özel karakterler bulundu")
-                    # Türkçe karakterleri koruyarak tokenization yap
-                    full_prompt = " ".join(turkish_tokens)
-                    logger.info("Metin Türkçe tokenizer ile yeniden birleştirildi")
-            
-            # Ana model için tokenization
-            inputs = tokenizer(full_prompt, return_tensors="pt")
-            inputs = inputs.to(model.device)
-            logger.info("Ana model tokenization tamamlandı")
-            
-            logger.info("Model çıktısı üretiliyor...")
-            outputs = model.generate(
-                inputs.input_ids,
-                max_length=4096,
-                do_sample=True,
-                temperature=0.3,
-                top_p=0.85,
-                top_k=40,
-                repetition_penalty=1.2,
-                num_return_sequences=1,
-                min_length=50
-            )
-            logger.info("Model çıktısı üretildi")
-            
-            # 5. Yanıtı Ayıkla ve Türkçe Karakterleri Düzelt
-            logger.info("Yanıt decode ediliyor...")
-            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-            answer = response.split("Yanıt:")[-1].strip()
-            
-            # Türkçe karakter düzeltmeleri
-            if turkish_tokenizer:
-                # Yaygın Türkçe karakter hataları düzeltme
-                turkish_fixes = {
-                    'yapiyorum': 'yapıyorum',
-                    'geliyorum': 'geliyorum',
-                    'gidiyorum': 'gidiyorum',
-                    'biliyorum': 'biliyorum',
-                    'diyorum': 'diyorum',
-                    'soyluyorum': 'söylüyorum',
-                    'goruyorum': 'görüyorum',
-                    'istiyorum': 'istiyorum',
-                    'dusunuyorum': 'düşünüyorum',
-                    'yaziyorum': 'yazıyorum',
-                    'konusuyorum': 'konuşuyorum',
-                    'bulunuyor': 'bulunuyor',
-                    'uretiliyor': 'üretiliyor',
-                    'yukleniyor': 'yükleniyor',
-                    'basliyor': 'başlıyor',
-                    'basarili': 'başarılı',
-                    'lutfen': 'lütfen',
-                    'uzgunum': 'üzgünüm',
-                    'tesekkur': 'teşekkür',
-                    'arac': 'araç',
-                    'sayisi': 'sayısı',
-                    'gun': 'gün',
-                    'urun': 'ürün'
-                }
-                
-                for wrong, correct in turkish_fixes.items():
-                    answer = answer.replace(wrong, correct)
-            
-            # Yanıt kontrolü
-            if not answer or len(answer) < 10:
-                answer = "Üzgünüm, sorunuzu tam olarak anlayamadım. Lütfen sorunuzu daha açık bir şekilde sorar mısınız?"
-            
-            logger.info(f"Final yanıt: {answer}")
-            return answer
-            
-        except Exception as model_error:
-            logger.error(f"Model işleme hatası: {str(model_error)}")
-            raise
+        # GPT çıktısı üret
+        outputs = generation_model.generate(
+            gpt_inputs.input_ids,
+            max_length=4096,
+            do_sample=True,
+            temperature=0.3,
+            top_p=0.85,
+            top_k=40,
+            repetition_penalty=1.2,
+            num_return_sequences=1,
+            min_length=50,
+            pad_token_id=generation_tokenizer.eos_token_id
+        )
+        
+        # Yanıtı ayıkla
+        response = generation_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        answer = response.split("Yanıt:")[-1].strip()
+        
+        # Türkçe son işlemler
+        answer_tokens = turkish_tokenizer.tokenize(answer)
+        answer = turkish_tokenizer.convert_tokens_to_string(answer_tokens)
+        
+        # Yanıt kontrolü
+        if not answer or len(answer) < 10:
+            answer = "Üzgünüm, sorunuzu tam olarak anlayamadım. Lütfen sorunuzu daha açık bir şekilde sorar mısınız?"
+        
+        logger.info(f"Final yanıt: {answer}")
+        return answer
         
     except Exception as e:
         logger.error(f"Soru işleme hatası: {str(e)}", exc_info=True)

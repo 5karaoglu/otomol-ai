@@ -77,7 +77,7 @@ supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 serverurl=unix:///var/run/supervisor.sock\n\
 \n\
 [program:backend]\n\
-command=python /app/backend/main.py\n\
+command=python /app/backend/main.py --port 8001\n\
 directory=/app/backend\n\
 autostart=true\n\
 autorestart=true\n\
@@ -106,6 +106,23 @@ RUN echo 'server {\n\
     \n\
     location / {\n\
         try_files $uri $uri/ /index.html;\n\
+    }\n\
+}\n\
+\n\
+server {\n\
+    listen 8000 ssl;\n\
+    server_name _;\n\
+    \n\
+    ssl_certificate /etc/nginx/ssl/nginx.crt;\n\
+    ssl_certificate_key /etc/nginx/ssl/nginx.key;\n\
+    \n\
+    location / {\n\
+        proxy_pass http://localhost:8001;\n\
+        proxy_http_version 1.1;\n\
+        proxy_set_header Upgrade $http_upgrade;\n\
+        proxy_set_header Connection "upgrade";\n\
+        proxy_set_header Host $host;\n\
+        proxy_set_header X-Real-IP $remote_addr;\n\
     }\n\
 }\n' > /etc/nginx/conf.d/default.conf
 

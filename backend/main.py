@@ -263,20 +263,10 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    import ssl
-
-    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_context.load_cert_chain(
-        certfile="/etc/nginx/ssl/nginx.crt",
-        keyfile="/etc/nginx/ssl/nginx.key"
-    )
-
+    
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
-        ssl_keyfile="/etc/nginx/ssl/nginx.key",
-        ssl_certfile="/etc/nginx/ssl/nginx.crt",
-        ssl_version=ssl.PROTOCOL_TLS,
         log_level="debug"
     ) 

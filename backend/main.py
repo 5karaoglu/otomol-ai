@@ -93,65 +93,25 @@ async def upload_database(file: UploadFile = File(...)):
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    
-    while True:
-        try:
-            # Ses verisini al
-            data = await websocket.receive_text()
-            
-            # Hoşgeldin mesajı kontrolü
+    logger.info("Yeni WebSocket bağlantı denemesi")
+    try:
+        await websocket.accept()
+        logger.info("WebSocket bağlantısı başarıyla kabul edildi")
+        
+        while True:
             try:
-                json_data = json.loads(data)
-                if json_data.get('type') == 'welcome':
-                    welcome_message = f"Merhaba {USER_NAME}! Ben {BOT_NAME}. Size nasıl yardımcı olabilirim?"
-                    # Metni sese çevir
-                    tts = gTTS(text=welcome_message, lang='tr')
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_voice:
-                        tts.save(temp_voice.name)
-                        with open(temp_voice.name, "rb") as audio_file:
-                            audio_base64 = base64.b64encode(audio_file.read()).decode()
-                    
-                    # Cevabı gönder
-                    await websocket.send_json({
-                        "text": welcome_message,
-                        "audio": f"data:audio/mp3;base64,{audio_base64}"
-                    })
-                    
-                    # Geçici dosyayı temizle
-                    os.unlink(temp_voice.name)
-                    continue
-
-            except json.JSONDecodeError:
-                pass
-
-            try:
-                # Base64'ten ses verisini çöz
-                audio_data = data.split(",")[1]
-                audio_bytes = base64.b64decode(audio_data)
+                # Ses verisini al
+                data = await websocket.receive_text()
+                logger.info("WebSocket üzerinden veri alındı")
                 
-                # Geçici WebM dosyası oluştur
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_webm:
-                    temp_webm.write(audio_bytes)
-                    temp_webm_path = temp_webm.name
-
-                # WebM'den WAV'a dönüştür
-                temp_wav_path = temp_webm_path.replace(".webm", ".wav")
-                subprocess.run(['ffmpeg', '-i', temp_webm_path, '-acodec', 'pcm_s16le', '-ar', '44100', temp_wav_path])
-                
-                # Ses tanıma
-                recognizer = sr.Recognizer()
+                # Hoşgeldin mesajı kontrolü
                 try:
-                    with sr.AudioFile(temp_wav_path) as source:
-                        audio = recognizer.record(source)
-                        soru = recognizer.recognize_google(audio, language="tr-TR")
-                        logger.info(f"Tanınan ses: {soru}")
-                        
-                        # Soruyu analiz et ve cevap oluştur
-                        cevap = await process_query(soru)
-                        
+                    json_data = json.loads(data)
+                    if json_data.get('type') == 'welcome':
+                        logger.info("Hoşgeldin mesajı alındı")
+                        welcome_message = f"Merhaba {USER_NAME}! Ben {BOT_NAME}. Size nasıl yardımcı olabilirim?"
                         # Metni sese çevir
-                        tts = gTTS(text=cevap, lang='tr')
+                        tts = gTTS(text=welcome_message, lang='tr')
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_voice:
                             tts.save(temp_voice.name)
                             with open(temp_voice.name, "rb") as audio_file:
@@ -159,34 +119,92 @@ async def websocket_endpoint(websocket: WebSocket):
                         
                         # Cevabı gönder
                         await websocket.send_json({
-                            "text": cevap,
-                            "audio": f"data:audio/mp3;base64,{audio_base64}",
-                            "recognized_text": soru
+                            "text": welcome_message,
+                            "audio": f"data:audio/mp3;base64,{audio_base64}"
                         })
+                        logger.info("Hoşgeldin mesajı gönderildi")
                         
-                        # Geçici dosyaları temizle
+                        # Geçici dosyayı temizle
                         os.unlink(temp_voice.name)
-                        os.unlink(temp_webm_path)
-                        os.unlink(temp_wav_path)
+                        continue
 
-                except sr.UnknownValueError:
-                    await websocket.send_json({
-                        "text": "Üzgünüm, söylediklerinizi anlayamadım. Lütfen tekrar deneyin.",
-                        "error": True
-                    })
-                except sr.RequestError as e:
-                    await websocket.send_json({
-                        "text": f"Ses tanıma servisi hatası: {str(e)}",
-                        "error": True
-                    })
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON ayrıştırma hatası: {str(e)}")
+                    pass
+
+                try:
+                    # Base64'ten ses verisini çöz
+                    audio_data = data.split(",")[1]
+                    audio_bytes = base64.b64decode(audio_data)
+                    logger.info("Ses verisi başarıyla decode edildi")
+                    
+                    # Geçici WebM dosyası oluştur
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_webm:
+                        temp_webm.write(audio_bytes)
+                        temp_webm_path = temp_webm.name
+
+                    # WebM'den WAV'a dönüştür
+                    temp_wav_path = temp_webm_path.replace(".webm", ".wav")
+                    subprocess.run(['ffmpeg', '-i', temp_webm_path, '-acodec', 'pcm_s16le', '-ar', '44100', temp_wav_path])
+                    logger.info("Ses dosyası WAV formatına dönüştürüldü")
+                    
+                    # Ses tanıma
+                    recognizer = sr.Recognizer()
+                    try:
+                        with sr.AudioFile(temp_wav_path) as source:
+                            audio = recognizer.record(source)
+                            soru = recognizer.recognize_google(audio, language="tr-TR")
+                            logger.info(f"Tanınan ses: {soru}")
+                            
+                            # Soruyu analiz et ve cevap oluştur
+                            cevap = await process_query(soru)
+                            logger.info(f"Oluşturulan cevap: {cevap}")
+                            
+                            # Metni sese çevir
+                            tts = gTTS(text=cevap, lang='tr')
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_voice:
+                                tts.save(temp_voice.name)
+                                with open(temp_voice.name, "rb") as audio_file:
+                                    audio_base64 = base64.b64encode(audio_file.read()).decode()
+                            
+                            # Cevabı gönder
+                            await websocket.send_json({
+                                "text": cevap,
+                                "audio": f"data:audio/mp3;base64,{audio_base64}",
+                                "recognized_text": soru
+                            })
+                            logger.info("Cevap başarıyla gönderildi")
+                            
+                            # Geçici dosyaları temizle
+                            os.unlink(temp_voice.name)
+                            os.unlink(temp_webm_path)
+                            os.unlink(temp_wav_path)
+
+                    except sr.UnknownValueError:
+                        error_msg = "Üzgünüm, söylediklerinizi anlayamadım. Lütfen tekrar deneyin."
+                        logger.error(error_msg)
+                        await websocket.send_json({
+                            "text": error_msg,
+                            "error": True
+                        })
+                    except sr.RequestError as e:
+                        error_msg = f"Ses tanıma servisi hatası: {str(e)}"
+                        logger.error(error_msg)
+                        await websocket.send_json({
+                            "text": error_msg,
+                            "error": True
+                        })
+                    
+                except Exception as e:
+                    logger.error(f"Ses işleme hatası: {str(e)}")
+                    await websocket.send_text(f"Hata: {str(e)}")
                 
             except Exception as e:
-                logger.error(f"Ses işleme hatası: {str(e)}")
-                await websocket.send_text(f"Hata: {str(e)}")
-            
-        except Exception as e:
-            logger.error(f"WebSocket hatası: {str(e)}")
-            break
+                logger.error(f"WebSocket veri alım hatası: {str(e)}")
+                break
+    except Exception as e:
+        logger.error(f"WebSocket bağlantı hatası: {str(e)}")
+        raise
 
 async def process_query(query: str):
     query = query.lower()

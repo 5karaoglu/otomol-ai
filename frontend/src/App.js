@@ -31,16 +31,18 @@ function App() {
 
   const connectWebSocket = () => {
     try {
+      console.log('WebSocket bağlantısı başlatılıyor:', `${WS_URL}/ws`);
       const ws = new WebSocket(`${WS_URL}/ws`);
       setConnection(ws);
 
       ws.onopen = () => {
-        console.log('WebSocket bağlantısı kuruldu');
+        console.log('WebSocket bağlantısı başarıyla kuruldu');
         reconnectAttempts.current = 0;
         setMessages(prev => [...prev, { type: 'system', text: 'Bağlantı kuruldu' }]);
       };
 
       ws.onmessage = async (event) => {
+        console.log('WebSocket mesajı alındı:', event.data);
         try {
           const response = JSON.parse(event.data);
           
@@ -55,19 +57,24 @@ function App() {
 
           // Eğer tanınan ses varsa, kullanıcı mesajı olarak ekle
           if (response.recognized_text) {
+            console.log('Tanınan ses:', response.recognized_text);
             setMessages(prev => [...prev, { type: 'user', text: response.recognized_text }]);
           }
           
           // Bot yanıtını ekle
+          console.log('Bot yanıtı:', response.text);
           setMessages(prev => [...prev, { type: 'bot', text: response.text }]);
           
           if (response.audio) {
+            console.log('Ses yanıtı çalınıyor');
             const audio = new Audio(response.audio);
-            await audio.play().catch(console.error);
+            await audio.play().catch(error => {
+              console.error('Ses çalma hatası:', error);
+            });
             startRecording();
           }
         } catch (error) {
-          console.error('WebSocket mesaj hatası:', error);
+          console.error('WebSocket mesaj işleme hatası:', error);
           if (typeof event.data === 'string') {
             setMessages(prev => [...prev, { type: 'error', text: event.data }]);
           }
@@ -75,14 +82,26 @@ function App() {
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket hatası detayları:', error);
-        console.error('WebSocket bağlantı durumu:', ws.readyState);
-        console.error('Bağlanmaya çalışılan URL:', `${WS_URL}/ws`);
+        console.error('WebSocket bağlantı hatası:', error);
+        console.error('WebSocket durumu:', ws.readyState);
+        console.error('Bağlantı URL:', `${WS_URL}/ws`);
+        console.error('Tam hata detayları:', {
+          error,
+          wsState: ws.readyState,
+          wsUrl: `${WS_URL}/ws`,
+          wsBufferedAmount: ws.bufferedAmount,
+          wsExtensions: ws.extensions,
+          wsProtocol: ws.protocol
+        });
         setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı hatası oluştu' }]);
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket bağlantısı kapandı:', event.code);
+        console.log('WebSocket bağlantısı kapandı:', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean
+        });
         setConnection(null);
         
         // Planlı kapanma değilse yeniden bağlan
@@ -90,12 +109,14 @@ function App() {
           if (reconnectAttempts.current < maxReconnectAttempts) {
             reconnectAttempts.current += 1;
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+            console.log(`Yeniden bağlanılıyor (${reconnectAttempts.current}/${maxReconnectAttempts}) - ${delay}ms sonra`);
             setMessages(prev => [...prev, { type: 'system', text: `Yeniden bağlanılıyor (${reconnectAttempts.current}/${maxReconnectAttempts})...` }]);
             
             reconnectTimeout.current = setTimeout(() => {
               connectWebSocket();
             }, delay);
           } else {
+            console.error('Maksimum yeniden bağlanma denemesi aşıldı');
             setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı kurulamadı. Lütfen sayfayı yenileyin.' }]);
           }
         }
@@ -103,7 +124,7 @@ function App() {
 
       return ws;
     } catch (error) {
-      console.error('WebSocket bağlantı hatası:', error);
+      console.error('WebSocket oluşturma hatası:', error);
       setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı hatası: ' + error.message }]);
       return null;
     }

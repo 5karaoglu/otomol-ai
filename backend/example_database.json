@@ -1,25 +1,375 @@
 {
-    "ocak_2025": {
+    "ocak": {
         "1": [
             {
-                "marka": "zara man",
-                "uretim_yeri": "çalık",
-                "yukleme_adedi": 10000
+                "marka": "Mercedes",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 28456
             },
             {
-                "marka": "zara woman",
-                "uretim_yeri": "smart",
-                "yukleme_adedi": 15000
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 15789
+            }
+        ],
+        "2": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 42315
             },
             {
-                "marka": "bershka",
-                "uretim_yeri": "alex",
-                "yukleme_adedi": 20000
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 31678
+            }
+        ],
+        "3": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 19876
             },
             {
-                "marka": "urban",
-                "uretim_yeri": "afrika",
-                "yukleme_adedi": 25000
+                "marka": "BMW",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 45123
+            }
+        ],
+        "4": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 23456
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 37891
+            }
+        ],
+        "5": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 41234
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 28765
+            }
+        ],
+        "6": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 33456
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 47123
+            }
+        ],
+        "7": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 25678
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 39876
+            }
+        ],
+        "8": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 44567
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 18934
+            }
+        ],
+        "9": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 32145
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 49876
+            }
+        ],
+        "10": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 27654
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 36789
+            }
+        ],
+        "11": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 43210
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 21345
+            }
+        ],
+        "12": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 38765
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 46123
+            }
+        ],
+        "13": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 29876
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 41234
+            }
+        ],
+        "14": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 35678
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 48912
+            }
+        ],
+        "15": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 22345
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 37654
+            }
+        ],
+        "16": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 45678
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 31234
+            }
+        ],
+        "17": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 26789
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 43567
+            }
+        ],
+        "18": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 39876
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 24567
+            }
+        ],
+        "19": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 47123
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 33456
+            }
+        ],
+        "20": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 28765
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 41234
+            }
+        ],
+        "21": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 36789
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 49123
+            }
+        ],
+        "22": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 23456
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 38765
+            }
+        ],
+        "23": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 44567
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 27654
+            }
+        ],
+        "24": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 35678
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 46789
+            }
+        ],
+        "25": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 31234
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 42567
+            }
+        ],
+        "26": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 25678
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 39876
+            }
+        ],
+        "27": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 48123
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 34567
+            }
+        ],
+        "28": [
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 29876
+            },
+            {
+                "marka": "Audi",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 43210
+            }
+        ],
+        "29": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 37654
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 45678
+            }
+        ],
+        "30": [
+            {
+                "marka": "Audi",
+                "uretim_yeri": "Bursa",
+                "yukleme_adedi": 26789
+            },
+            {
+                "marka": "Volkswagen",
+                "uretim_yeri": "İstanbul",
+                "yukleme_adedi": 40123
+            }
+        ],
+        "31": [
+            {
+                "marka": "Mercedes",
+                "uretim_yeri": "Ankara",
+                "yukleme_adedi": 33456
+            },
+            {
+                "marka": "BMW",
+                "uretim_yeri": "İzmir",
+                "yukleme_adedi": 47890
             }
         ]
     }

@@ -7,8 +7,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # NVIDIA araçlarını yükle
 RUN apt-get update && apt-get install -y \
-    nvidia-cuda-toolkit \
-    cuda-toolkit-12-1 \
+    nvidia-utils-525 \
     && rm -rf /var/lib/apt/lists/*
 
 # Çalışma dizinini ayarla

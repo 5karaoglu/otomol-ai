@@ -9,6 +9,7 @@ import {
   ListItemText,
   Button,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import MicIcon from '@mui/icons-material/Mic';
@@ -23,6 +24,8 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [connection, setConnection] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentAudio, setCurrentAudio] = useState(null);
   const mediaRecorder = useRef(null);
   const audioChunks = useRef([]);
   const reconnectTimeout = useRef(null);
@@ -48,7 +51,6 @@ function App() {
         try {
           const response = JSON.parse(event.data);
           
-          // Son mesaj "Dinleniyor..." ise onu kaldır
           setMessages(prev => {
             const newMessages = [...prev];
             if (newMessages.length > 0 && newMessages[newMessages.length - 1].text === 'Dinleniyor...') {
@@ -57,29 +59,37 @@ function App() {
             return newMessages;
           });
 
-          // Eğer tanınan ses varsa, kullanıcı mesajı olarak ekle
           if (response.recognized_text) {
             console.log('Tanınan ses:', response.recognized_text);
             setMessages(prev => [...prev, { type: 'user', text: response.recognized_text }]);
           }
           
-          // Bot yanıtını ekle
           console.log('Bot yanıtı:', response.text);
           setMessages(prev => [...prev, { type: 'bot', text: response.text }]);
           
           if (response.audio) {
             console.log('Ses yanıtı çalınıyor');
+            if (currentAudio) {
+              currentAudio.pause();
+              currentAudio.currentTime = 0;
+            }
             const audio = new Audio(response.audio);
+            setCurrentAudio(audio);
             await audio.play().catch(error => {
               console.error('Ses çalma hatası:', error);
             });
-            startRecording();
+            audio.onended = () => {
+              setCurrentAudio(null);
+              startRecording();
+            };
           }
+          setIsProcessing(false);
         } catch (error) {
           console.error('WebSocket mesaj işleme hatası:', error);
           if (typeof event.data === 'string') {
             setMessages(prev => [...prev, { type: 'error', text: event.data }]);
           }
+          setIsProcessing(false);
         }
       };
 
@@ -106,7 +116,6 @@ function App() {
         });
         setConnection(null);
         
-        // Planlı kapanma değilse yeniden bağlan
         if (event.code !== 1000 && event.code !== 1001) {
           if (reconnectAttempts.current < maxReconnectAttempts) {
             reconnectAttempts.current += 1;
@@ -133,12 +142,11 @@ function App() {
   };
 
   const startRecording = async () => {
-    if (isRecording) return;
+    if (isRecording || isProcessing) return;
     
-    // WebSocket bağlantısını kontrol et
     if (!connection || connection.readyState !== WebSocket.OPEN) {
       console.log('WebSocket bağlantısı yok, yeniden bağlanılıyor...');
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 saniye bekle
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const newWs = connectWebSocket();
       if (!newWs) {
         setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı kurulamadı, tekrar deneniyor...' }]);
@@ -161,6 +169,7 @@ function App() {
       };
 
       mediaRecorder.current.onstop = async () => {
+        setIsProcessing(true);
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm;codecs=opus' });
         const reader = new FileReader();
         
@@ -172,6 +181,7 @@ function App() {
             console.log('Ses gönderilemiyor, bağlantı kapalı');
             setMessages(prev => [...prev, { type: 'error', text: 'Bağlantı hatası, yeniden bağlanılıyor...' }]);
             connectWebSocket();
+            setIsProcessing(false);
           }
         };
         
@@ -185,6 +195,7 @@ function App() {
       console.error('Mikrofon erişim hatası:', error);
       setMessages(prev => [...prev, { type: 'error', text: 'Mikrofon hatası: ' + error.message }]);
       setIsRecording(false);
+      setIsProcessing(false);
     }
   };
 
@@ -215,20 +226,17 @@ function App() {
 
   const toggleRecording = async () => {
     if (isRecording) {
-      // Kaydı durdur
       if (mediaRecorder.current && mediaRecorder.current.state === 'recording') {
         mediaRecorder.current.stop();
         mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
       }
       setIsRecording(false);
     } else {
-      // Yeni kayıt başlat
       try {
         if (!navigator.mediaDevices) {
           throw new Error('Tarayıcınız mikrofon erişimini desteklemiyor. Lütfen HTTPS kullanın veya güvenilir bir bağlantı kurun.');
         }
 
-        // Mikrofon izni iste
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             echoCancellation: true,
@@ -285,10 +293,8 @@ function App() {
     let welcomeWs = null;
 
     const initializeConnection = async () => {
-      // Ana WebSocket bağlantısını kur
       mainWs = connectWebSocket();
       
-      // Hoşgeldin mesajı için yeni WebSocket bağlantısı
       welcomeWs = new WebSocket(`${WS_URL}/ws`);
       welcomeWs.onopen = () => {
         welcomeWs.send(JSON.stringify({ type: 'welcome' }));
@@ -356,32 +362,45 @@ function App() {
           Türkçe Sesli Asistan
         </Typography>
         
-        <Paper elevation={3} sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <input
-              accept=".json"
-              style={{ display: 'none' }}
-              id="database-file"
-              type="file"
-              onChange={handleFileUpload}
-            />
-            <label htmlFor="database-file" style={{ flexGrow: 1 }}>
-              <Button
-                variant="contained"
-                component="span"
-                fullWidth
-                startIcon={<UploadFileIcon />}
-              >
-                Veritabanı Yükle
-              </Button>
-            </label>
-            <IconButton 
-              color={isRecording ? "error" : "primary"}
+        <Paper elevation={3} sx={{ p: 2, position: 'relative' }}>
+          {isProcessing && (
+            <Box sx={{ 
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              display: 'flex', 
+              justifyContent: 'center', 
+              p: 1 
+            }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center', gap: 2 }}>
+            <IconButton
               onClick={toggleRecording}
-              sx={{ width: 56, height: 56 }}
+              disabled={isProcessing}
+              color={isRecording ? 'secondary' : 'primary'}
             >
               {isRecording ? <StopIcon /> : <MicIcon />}
             </IconButton>
+            <input
+              accept=".json"
+              style={{ display: 'none' }}
+              id="upload-database"
+              type="file"
+              onChange={handleFileUpload}
+              disabled={isProcessing}
+            />
+            <label htmlFor="upload-database">
+              <IconButton
+                component="span"
+                disabled={isProcessing}
+                color="primary"
+              >
+                <UploadFileIcon />
+              </IconButton>
+            </label>
           </Box>
         </Paper>
 

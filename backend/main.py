@@ -25,8 +25,8 @@ GENERATION_MODEL_NAME = "ai-forever/mGPT"  # Çok dilli GPT modeli
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
-device_map = "auto"
-torch_dtype = torch.float16  # fp16 kullan
+device = "cuda" if torch.cuda.is_available() else "cpu"
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 # Türkçe BERT model ve tokenizer yükleme
 try:
@@ -34,10 +34,8 @@ try:
     turkish_tokenizer = AutoTokenizer.from_pretrained(TURKISH_MODEL_NAME)
     turkish_model = AutoModelForCausalLM.from_pretrained(
         TURKISH_MODEL_NAME,
-        device_map=device_map,
-        torch_dtype=torch_dtype,
-        load_in_8bit=True
-    )
+        torch_dtype=torch_dtype
+    ).to(device)
     logger.info("Türkçe BERT model ve tokenizer başarıyla yüklendi")
 except Exception as e:
     logger.error(f"Türkçe model yükleme hatası: {str(e)}")
@@ -50,7 +48,7 @@ try:
     generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
     generation_model = AutoModelForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
-        device_map=device_map,
+        device_map="auto",
         torch_dtype=torch_dtype,
         load_in_8bit=True
     )
@@ -65,7 +63,7 @@ generation_pipeline = pipeline(
     "text-generation",
     model=generation_model,
     tokenizer=generation_tokenizer,
-    device_map=device_map,
+    device_map="auto",
     torch_dtype=torch_dtype,
     max_length=2048,
     do_sample=True,

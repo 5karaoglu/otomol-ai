@@ -14,14 +14,27 @@ import logging
 import subprocess
 import argparse
 import uvicorn # type: ignore
+import shutil
+from pathlib import Path
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# LLM model ve tokenizer yükleme
+# Cache dizini ayarları
+CACHE_DIR = Path("./model_cache")
+CACHE_DIR.mkdir(exist_ok=True)
+os.environ['TRANSFORMERS_CACHE'] = str(CACHE_DIR)
+logger.info(f"Model cache dizini: {CACHE_DIR}")
+
+# Model isimleri ve cache kontrol
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "ai-forever/mGPT"  # Çok dilli GPT modeli
+GENERATION_MODEL_NAME = "ai-forever/mGPT"
+
+def check_cached_model(model_name: str) -> bool:
+    """Model cache'de var mı kontrol et"""
+    model_cache = CACHE_DIR / "models--" + model_name.replace("/", "--")
+    return model_cache.exists()
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
@@ -30,11 +43,21 @@ torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 # Türkçe BERT model ve tokenizer yükleme
 try:
-    logger.info("Türkçe BERT model ve tokenizer yükleniyor...")
-    turkish_tokenizer = AutoTokenizer.from_pretrained(TURKISH_MODEL_NAME)
+    if check_cached_model(TURKISH_MODEL_NAME):
+        logger.info("Türkçe BERT model cache'den yükleniyor...")
+    else:
+        logger.info("Türkçe BERT model indiriliyor...")
+    
+    turkish_tokenizer = AutoTokenizer.from_pretrained(
+        TURKISH_MODEL_NAME,
+        cache_dir=CACHE_DIR,
+        local_files_only=check_cached_model(TURKISH_MODEL_NAME)
+    )
     turkish_model = AutoModelForCausalLM.from_pretrained(
         TURKISH_MODEL_NAME,
-        torch_dtype=torch_dtype
+        torch_dtype=torch_dtype,
+        cache_dir=CACHE_DIR,
+        local_files_only=check_cached_model(TURKISH_MODEL_NAME)
     ).to(device)
     logger.info("Türkçe BERT model ve tokenizer başarıyla yüklendi")
 except Exception as e:
@@ -44,13 +67,23 @@ except Exception as e:
 
 # Üretim modeli yükleme
 try:
-    logger.info("Üretim modeli yükleniyor...")
-    generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
+    if check_cached_model(GENERATION_MODEL_NAME):
+        logger.info("Üretim modeli cache'den yükleniyor...")
+    else:
+        logger.info("Üretim modeli indiriliyor...")
+    
+    generation_tokenizer = AutoTokenizer.from_pretrained(
+        GENERATION_MODEL_NAME,
+        cache_dir=CACHE_DIR,
+        local_files_only=check_cached_model(GENERATION_MODEL_NAME)
+    )
     generation_model = AutoModelForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
         device_map="auto",
         torch_dtype=torch_dtype,
-        load_in_8bit=True
+        load_in_8bit=True,
+        cache_dir=CACHE_DIR,
+        local_files_only=check_cached_model(GENERATION_MODEL_NAME)
     )
     logger.info("Üretim modeli başarıyla yüklendi")
 except Exception as e:
@@ -331,6 +364,48 @@ Yanıt:"""
 @app.get("/")
 async def root():
     return {"message": "OtomolAI Backend API"}
+
+# Cache temizleme fonksiyonu
+def clear_model_cache():
+    """Model cache'ini temizle"""
+    try:
+        shutil.rmtree(CACHE_DIR)
+        CACHE_DIR.mkdir(exist_ok=True)
+        logger.info("Model cache başarıyla temizlendi")
+        return True
+    except Exception as e:
+        logger.error(f"Cache temizleme hatası: {str(e)}")
+        return False
+
+# Cache durumunu kontrol endpoint'i
+@app.get("/cache-status")
+async def cache_status():
+    """Cache durumunu kontrol et"""
+    try:
+        cache_size = sum(f.stat().st_size for f in CACHE_DIR.glob('**/*') if f.is_file()) / (1024 * 1024)  # MB
+        return {
+            "status": "active",
+            "cache_dir": str(CACHE_DIR),
+            "cache_size_mb": round(cache_size, 2),
+            "models_cached": {
+                "turkish_bert": check_cached_model(TURKISH_MODEL_NAME),
+                "mgpt": check_cached_model(GENERATION_MODEL_NAME)
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
+
+# Cache temizleme endpoint'i
+@app.post("/clear-cache")
+async def clear_cache():
+    """Cache'i temizle"""
+    if clear_model_cache():
+        return {"message": "Cache başarıyla temizlendi"}
+    else:
+        raise HTTPException(status_code=500, detail="Cache temizleme hatası")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

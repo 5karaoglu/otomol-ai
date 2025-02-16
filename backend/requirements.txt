@@ -11,4 +11,6 @@ accelerate==0.21.0
 bitsandbytes==0.41.1
 scipy==1.11.2
 numpy==1.24.3
-websockets==10.4 
+websockets==10.4
+xformers==0.0.22
+wsproto==1.2.0 

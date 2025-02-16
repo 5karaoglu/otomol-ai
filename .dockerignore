@@ -29,4 +29,17 @@ backend/*.log
 
 # OS
 .DS_Store
+Thumbs.db
+
+# Model cache - sadece backend'de olmalı
+backend/model_cache/
+
+# Virtual Environment
+.env
+.venv
+venv/
+ENV/
+
+# Misc
+.DS_Store
 Thumbs.db 

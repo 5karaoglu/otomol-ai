@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # LLM model ve tokenizer yükleme
-MODEL_NAME = "NousResearch/Llama-2-7b-chat-hf"
+MODEL_NAME = "bigscience/bloom-7b1"  # BLOOM modelini kullanıyoruz
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
@@ -41,7 +41,13 @@ llm_pipeline = pipeline(
     model=model,
     tokenizer=tokenizer,
     device_map=device_map,
-    torch_dtype=torch_dtype
+    torch_dtype=torch_dtype,
+    max_length=2048,
+    do_sample=True,
+    temperature=0.7,
+    top_p=0.95,
+    top_k=50,
+    repetition_penalty=1.2
 )
 
 app = FastAPI()
@@ -224,48 +230,41 @@ async def process_query(query: str):
     
     try:
         # Veritabanı bilgilerini metin haline getir
-        context = ""
-        for ay in DATABASE:
-            for gun in DATABASE[ay]:
-                for kayit in DATABASE[ay][gun]:
-                    context += f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet yükleme yapmıştır. "
-        
+        context = generate_context()
         logger.info(f"Oluşturulan context: {context}")
         
-        # Prompt oluştur
-        prompt = f"""<s>[INST] <<SYS>> You are a helpful AI assistant that speaks Turkish. Your name is {BOT_NAME} and you're talking to {USER_NAME}.
-You can engage in general conversation and answer questions about the database information.
-Always respond in Turkish and be friendly. <</SYS>>
-
-Here is the database information:
+        # Türkçe prompt oluştur
+        prompt = f"""Bağlam Bilgisi:
 {context}
 
-User's question: {query}
+Soru: {query}
 
-If the question is about the database (production, loading, brands), use only the database information to answer.
-If it's general chat or greeting, respond politely and helpfully.
-Always respond in Turkish and be friendly. [/INST]"""
+Yanıt: Bir yapay zeka asistanı olarak, yukarıdaki soruyu Türkçe olarak yanıtlayacağım. Veritabanı ile ilgili sorularda sadece verilen bağlam bilgisini kullanacağım.
+
+"""
         
         logger.info(f"Oluşturulan prompt: {prompt}")
         
-        # LLM ile yanıt üret
-        result = llm_pipeline(
+        # BLOOM ile yanıt oluştur
+        response = llm_pipeline(
             prompt,
-            max_length=500,
-            num_return_sequences=1,
+            max_length=2048,
+            do_sample=True,
             temperature=0.7,
             top_p=0.95,
-            do_sample=True,
-            pad_token_id=tokenizer.eos_token_id
-        )[0]
+            top_k=50,
+            repetition_penalty=1.2,
+            num_return_sequences=1
+        )[0]['generated_text']
         
         # Yanıtı ayıkla
-        answer = result['generated_text'].split("[/INST]")[-1].strip()
-        logger.info(f"LLM yanıtı: {answer}")
+        answer = response.split("Yanıt:")[-1].strip()
+        logger.info(f"Model yanıtı: {answer}")
+        
         return answer
         
     except Exception as e:
-        logger.error(f"İşleme hatası: {str(e)}")
+        logger.error(f"Soru işleme hatası: {str(e)}")
         return "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
 
 # Root endpoint

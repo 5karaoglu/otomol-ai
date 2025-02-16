@@ -13,6 +13,7 @@ import tempfile
 import logging
 import subprocess
 import argparse
+import uvicorn
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)

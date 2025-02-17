@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, T5ForConditionalGeneration, pipeline # type: ignore
+from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, GPT2LMHeadModel, pipeline # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
 import os
@@ -48,7 +48,7 @@ except Exception as e:
 try:
     logger.info("Üretim modeli yükleniyor...")
     generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
-    generation_model = T5ForConditionalGeneration.from_pretrained(
+    generation_model = GPT2LMHeadModel.from_pretrained(
         GENERATION_MODEL_NAME,
         torch_dtype=torch_dtype
     ).to(device)

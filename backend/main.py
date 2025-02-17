@@ -346,25 +346,33 @@ async def process_query(query: str) -> str:
         # 3. LLaMA ile yanıt üretme
         prompt = format_prompt(query, context, similarity)
         
+        # Tokenize ve attention mask oluştur
         inputs = llama_tokenizer(
             prompt,
             return_tensors="pt",
-            max_length=2048,
-            truncation=True
+            max_length=1024,  # Prompt için maksimum uzunluk
+            truncation=True,
+            padding=True
         ).to(device)
+        
+        # Attention mask oluştur
+        attention_mask = torch.ones_like(inputs.input_ids)
+        attention_mask[inputs.input_ids == llama_tokenizer.pad_token_id] = 0
         
         # LLaMA çıktısı üret
         outputs = llama_model.generate(
             inputs.input_ids,
-            max_length=4096,
+            attention_mask=attention_mask,
+            max_length=2048,  # Toplam maksimum uzunluk
+            max_new_tokens=1024,  # Yeni üretilecek maksimum token sayısı
             do_sample=True,
             temperature=0.3,
             top_p=0.85,
             top_k=40,
             repetition_penalty=1.2,
             num_return_sequences=1,
-            min_length=50,
-            pad_token_id=llama_tokenizer.eos_token_id
+            pad_token_id=llama_tokenizer.pad_token_id,
+            eos_token_id=llama_tokenizer.eos_token_id
         )
         
         # Yanıtı ayıkla

@@ -42,25 +42,20 @@ DİL VE İLETİŞİM:
 - Konuşma tarzın samimi ve dostanedir
 - Sayısal verileri Türk formatında sunarsın (örn: 1.234.567,89)
 - Tarihleri Türk formatında yazarsın (örn: 15 Ocak 2024)
+- Kısa ve öz cevaplar verirsin, gereksiz detaylardan kaçınırsın
 
 SOHBET KURALLARI:
-- Her türlü soruya cevap verebilirsin
+- Her türlü soruya kısa ve net cevaplar ver
 - Sohbet sırasında doğal ve samimi ol
-- Şaka yapabilir, espri katabilirsin
+- Gereksiz açıklamalar yapma
 - Karşındakinin sorularını anlamaya çalış
-- Anlamadığın bir şey olursa açıklama iste
+- Anlamadığın bir şey olursa kısaca açıklama iste
 
 VERİTABANI KULLANIMI:
-- Eğer soru veritabanıyla ilgiliyse, bağlamdan bilgi kullan
-- Veritabanı dışındaki konularda da sohbet edebilirsin
-- Veritabanı bilgisi olmayan konularda dürüstçe belirt
-- Tahmin yürütmekten kaçın, emin olmadığın konularda bunu söyle
-
-BERT ANALİZ KULLANIMI:
-- Soruların bağlamla ilgililik skorunu dikkate al
-- Düşük ilgililik skorunda (< 0.5) kullanıcıyı nazikçe yönlendir
-- Yüksek ilgililik skorunda (> 0.8) detaylı yanıtlar ver
-- Her durumda sohbeti sürdürmeye çalış"""
+- Eğer soru veritabanıyla ilgiliyse, sadece ilgili bilgileri ver
+- Veritabanı dışındaki konularda da kısa yanıtlar ver
+- Veritabanı bilgisi olmayan konularda kısaca belirt
+- Tahmin yürütmekten kaçın"""
 
 def count_tokens(text: str) -> int:
     """Verilen metnin token sayısını hesapla"""
@@ -479,13 +474,14 @@ async def process_query(query: str) -> str:
         outputs = llama_model.generate(
             inputs.input_ids,
             attention_mask=attention_mask,
-            max_length=2048,
-            max_new_tokens=2048,
+            max_length=1024,  # Daha kısa maksimum uzunluk
+            max_new_tokens=256,  # Daha az yeni token
             do_sample=True,
-            temperature=0.6,
-            top_p=0.85,
-            top_k=40,
-            repetition_penalty=1.2,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=50,
+            repetition_penalty=1.3,
+            length_penalty=0.8,  # Kısa cevapları teşvik et
             num_return_sequences=1,
             pad_token_id=llama_tokenizer.pad_token_id,
             eos_token_id=llama_tokenizer.eos_token_id

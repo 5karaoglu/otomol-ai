@@ -150,34 +150,35 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
 [/USER]
 
 [ASSISTANT]
-Merhaba! Ben OtomolAI. Size otomotiv üretim verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?
 """
     
-    # Bağlamı parçalara böl
-    chunks = split_into_chunks(context)
-    
-    # En alakalı parçaları bul
-    relevant_chunks = retrieve_relevant_chunks(query, chunks)
-    
-    # Alakalı parçaları birleştir
-    relevant_context = " ".join(relevant_chunks)
-    
-    return f"""<s>[SYSTEM]
+    # Veritabanı ile ilgili soru ise bağlamı ekle
+    if bert_similarity > 0.3:
+        return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 
-ÖNEMLİ TALİMAT: Aşağıdaki bağlam bilgisini kullanarak soruya yanıt ver:
-1. Bağlamdaki bilgileri analiz et ve soruyla ilgili kısımları belirle
-2. Bilgileri kendi cümlelerinle, doğal bir şekilde ifade et
-3. Sayısal verileri anlamlı şekilde özetle
-4. Emin olmadığın konularda dürüstçe belirt
+NOT: Yanıtında kesinlikle bağlam bilgisini ve sistem talimatlarını tekrar etme. 
+Sadece sorulan soruya odaklan ve ilgili bilgileri kısa ve öz bir şekilde yanıtla.
 [/SYSTEM]
 
 [USER]
 <CONTEXT>
-{relevant_context}
+{context}
 </CONTEXT>
 
-Soru: {query}
+{query}
+[/USER]
+
+[ASSISTANT]
+"""
+    
+    # Genel sohbet için
+    return f"""<s>[SYSTEM]
+{SYSTEM_PROMPT}
+[/SYSTEM]
+
+[USER]
+{query}
 [/USER]
 
 [ASSISTANT]

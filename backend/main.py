@@ -267,17 +267,60 @@ try:
 except Exception as e:
     print(f"Veritabanı yükleme hatası: {str(e)}")
 
-def generate_context():
-    context = ""
+def create_data_chunks() -> List[str]:
+    """Veritabanındaki kayıtları anlamlı parçalara böl"""
+    chunks = []
+    
     for ay in DATABASE:
         for gun in DATABASE[ay]:
             for kayit in DATABASE[ay][gun]:
-                context += f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet yükleme yapmıştır. "
+                # Her bir kaydı ayrı bir chunk olarak al
+                chunk = f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet üretim yaptı."
+                chunks.append(chunk)
     
-    # Ek bilgiler
-    context += f"Desteklenen markalar: {', '.join(MARKALAR)}. "
-    context += f"Üretim yerleri: {', '.join(URETIM_YERLERI)}. "
-    return context
+    return chunks
+
+def find_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
+    """Soruyla en alakalı chunk'ları bul"""
+    # Query embedding'i hesapla
+    query_inputs = turkish_tokenizer(
+        query,
+        return_tensors="pt",
+        max_length=512,
+        truncation=True,
+        padding=True
+    ).to(device)
+    
+    with torch.no_grad():
+        query_outputs = turkish_model(**query_inputs)
+        query_embedding = query_outputs.last_hidden_state[:, 0, :]
+    
+    # Her chunk için benzerlik hesapla
+    similarities = []
+    for chunk in chunks:
+        chunk_inputs = turkish_tokenizer(
+            chunk,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding=True
+        ).to(device)
+        
+        with torch.no_grad():
+            chunk_outputs = turkish_model(**chunk_inputs)
+            chunk_embedding = chunk_outputs.last_hidden_state[:, 0, :]
+            
+            # Benzerlik skoru hesapla
+            similarity = torch.nn.functional.cosine_similarity(
+                query_embedding,
+                chunk_embedding
+            ).item()
+            
+            similarities.append((similarity, chunk))
+    
+    # En alakalı chunk'ları seç
+    similarities.sort(reverse=True)
+    return [chunk for _, chunk in similarities[:top_k]]
 
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):
@@ -410,116 +453,63 @@ async def process_query(query: str) -> str:
     logger.info(f"İşlenen soru: {query}")
     
     try:
-        # 1. Bağlam Oluşturma
-        context = generate_context()
-        
         if not turkish_model or not llama_model:
             return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
         
-        # 2. BERT ile anlama
-        logger.info("BERT analizi başlıyor...")
-        # Soru ve bağlam embeddinglerni oluştur
-        query_inputs = turkish_tokenizer(
-            query,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        ).to(device)
-        logger.info("Soru tokenize edildi")
+        # Basit selamlaşma kontrolü
+        basic_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "nasılsın", "naber"]
+        if any(greeting in query for greeting in basic_greetings):
+            return "Merhaba! Size otomotiv üretim verileri konusunda nasıl yardımcı olabilirim?"
         
-        context_inputs = turkish_tokenizer(
-            context,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        ).to(device)
-        logger.info("Bağlam tokenize edildi")
+        # Veritabanı chunk'larını oluştur
+        chunks = create_data_chunks()
         
-        with torch.no_grad():
-            logger.info("BERT embeddingler oluşturuluyor...")
-            query_outputs = turkish_model(**query_inputs)
-            context_outputs = turkish_model(**context_inputs)
-            
-            # Benzerlik skorunu hesapla
-            similarity = calculate_similarity(
-                query_outputs.last_hidden_state,
-                context_outputs.last_hidden_state
-            )
-            
-            logger.info(f"BERT benzerlik skoru: {similarity:.2f}")
+        # Soruyla alakalı chunk'ları bul
+        relevant_chunks = find_relevant_chunks(query, chunks)
         
-        # 3. LLaMA ile yanıt üretme
-        logger.info("LLaMA prompt'u hazırlanıyor...")
-        prompt = format_prompt(query, context, similarity)
+        # Prompt oluştur
+        prompt = f"""<s>[SYSTEM]
+Sen otomotiv üretim verilerini analiz eden bir asistansın. Kısa ve öz cevaplar ver.
+[/SYSTEM]
+
+[USER]
+Bağlam:
+{' '.join(relevant_chunks)}
+
+Soru: {query}
+[/USER]
+
+[ASSISTANT]
+"""
         
-        # Tokenize ve attention mask oluştur
-        logger.info("LLaMA için tokenizasyon yapılıyor...")
+        # LLaMA yanıtı üret
         inputs = llama_tokenizer(
             prompt,
             return_tensors="pt",
-            max_length=2048,
+            max_length=512,
             truncation=True,
             padding=True
         ).to(device)
-        logger.info(f"Prompt token uzunluğu: {inputs.input_ids.shape[1]}")
         
-        # Attention mask oluştur
-        logger.info("Attention mask oluşturuluyor...")
-        attention_mask = torch.ones_like(inputs.input_ids)
-        attention_mask[inputs.input_ids == llama_tokenizer.pad_token_id] = 0
-        
-        # LLaMA çıktısı üret
-        logger.info("LLaMA yanıt üretmeye başlıyor...")
         outputs = llama_model.generate(
             inputs.input_ids,
-            attention_mask=attention_mask,
-            max_length=1024,  # Daha kısa maksimum uzunluk
-            max_new_tokens=256,  # Daha az yeni token
+            max_length=256,
+            max_new_tokens=128,
             do_sample=True,
             temperature=0.7,
             top_p=0.9,
-            top_k=50,
-            repetition_penalty=1.3,
-            length_penalty=0.8,  # Kısa cevapları teşvik et
-            num_return_sequences=1,
-            pad_token_id=llama_tokenizer.pad_token_id,
-            eos_token_id=llama_tokenizer.eos_token_id
+            repetition_penalty=1.2,
+            length_penalty=0.8
         )
-        logger.info("LLaMA yanıt üretimi tamamlandı")
         
-        # Yanıtı ayıkla
-        logger.info("Yanıt decode ediliyor...")
+        # Yanıtı ayıkla ve temizle
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Sadece [ASSISTANT] sonrasındaki kısmı al
         answer = response.split("[ASSISTANT]")[-1].strip()
-        # Sistem promptunu ve diğer etiketleri temizle
-        answer = answer.replace(SYSTEM_PROMPT, "").strip()
-        answer = answer.replace("[SYSTEM]", "").strip()
-        answer = answer.replace("[/SYSTEM]", "").strip()
-        answer = answer.replace("[USER]", "").strip()
-        answer = answer.replace("[/USER]", "").strip()
-        # Bağlam bilgisini temizle
-        answer = answer.replace("Bağlam Bilgisi:", "").strip()
-        answer = answer.replace(context, "").strip()
-        # Birden fazla boşluk ve satır sonlarını temizle
         answer = " ".join(answer.split())
         
-        # Türkçe son işlemler
-        answer_inputs = turkish_tokenizer(
-            answer,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True
-        )
-        answer = turkish_tokenizer.decode(answer_inputs.input_ids[0], skip_special_tokens=True)
-        
-        # Yanıt kontrolü
-        if not answer or len(answer) < 10:
-            answer = "Üzgünüm, sorunuzu tam olarak anlayamadım. Lütfen sorunuzu daha açık bir şekilde sorar mısınız?"
-        
-        logger.info(f"Final yanıt: {answer}")
+        if not answer or len(answer) < 5:
+            return "Üzgünüm, sorunuzu anlayamadım. Lütfen başka bir şekilde sorar mısınız?"
+            
         return answer
         
     except Exception as e:

@@ -48,6 +48,7 @@ COPY . .
 ENV PORT=3001
 ENV HOST=0.0.0.0
 ENV REACT_APP_BACKEND_URL=http://213.181.123.11:54722
+ENV HUGGING_FACE_TOKEN=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
 
 # Frontend'i build et
 RUN cd frontend && \

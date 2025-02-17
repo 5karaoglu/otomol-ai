@@ -312,12 +312,12 @@ async def process_query(query: str) -> str:
     try:
         # 1. Bağlam Oluşturma
         context = generate_context()
-        logger.info(f"Oluşturulan context: {context}")
         
         if not turkish_model or not llama_model:
             return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
         
         # 2. BERT ile anlama
+        logger.info("BERT analizi başlıyor...")
         # Soru ve bağlam embeddinglerni oluştur
         query_inputs = turkish_tokenizer(
             query,
@@ -326,6 +326,7 @@ async def process_query(query: str) -> str:
             truncation=True,
             padding=True
         ).to(device)
+        logger.info("Soru tokenize edildi")
         
         context_inputs = turkish_tokenizer(
             context,
@@ -334,8 +335,10 @@ async def process_query(query: str) -> str:
             truncation=True,
             padding=True
         ).to(device)
+        logger.info("Bağlam tokenize edildi")
         
         with torch.no_grad():
+            logger.info("BERT embeddingler oluşturuluyor...")
             query_outputs = turkish_model(**query_inputs)
             context_outputs = turkish_model(**context_inputs)
             
@@ -345,32 +348,37 @@ async def process_query(query: str) -> str:
                 context_outputs.last_hidden_state
             )
             
-            logger.info(f"Soru-Bağlam benzerlik skoru: {similarity:.2f}")
+            logger.info(f"BERT benzerlik skoru: {similarity:.2f}")
         
         # 3. LLaMA ile yanıt üretme
+        logger.info("LLaMA prompt'u hazırlanıyor...")
         prompt = format_prompt(query, context, similarity)
         
         # Tokenize ve attention mask oluştur
+        logger.info("LLaMA için tokenizasyon yapılıyor...")
         inputs = llama_tokenizer(
             prompt,
             return_tensors="pt",
-            max_length=1024,  # Prompt için maksimum uzunluk
+            max_length=2048,
             truncation=True,
             padding=True
         ).to(device)
+        logger.info(f"Prompt token uzunluğu: {inputs.input_ids.shape[1]}")
         
         # Attention mask oluştur
+        logger.info("Attention mask oluşturuluyor...")
         attention_mask = torch.ones_like(inputs.input_ids)
         attention_mask[inputs.input_ids == llama_tokenizer.pad_token_id] = 0
         
         # LLaMA çıktısı üret
+        logger.info("LLaMA yanıt üretmeye başlıyor...")
         outputs = llama_model.generate(
             inputs.input_ids,
             attention_mask=attention_mask,
-            max_length=2048,  # Toplam maksimum uzunluk
-            max_new_tokens=1024,  # Yeni üretilecek maksimum token sayısı
+            max_length=2048,
+            max_new_tokens=2048,
             do_sample=True,
-            temperature=0.3,
+            temperature=0.6,
             top_p=0.85,
             top_k=40,
             repetition_penalty=1.2,
@@ -378,8 +386,10 @@ async def process_query(query: str) -> str:
             pad_token_id=llama_tokenizer.pad_token_id,
             eos_token_id=llama_tokenizer.eos_token_id
         )
+        logger.info("LLaMA yanıt üretimi tamamlandı")
         
         # Yanıtı ayıkla
+        logger.info("Yanıt decode ediliyor...")
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
         # Sadece [ASSISTANT] sonrasındaki kısmı al
         answer = response.split("[ASSISTANT]")[-1].strip()

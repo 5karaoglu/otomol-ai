@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, GPT2LMHeadModel, pipeline # type: ignore
+from transformers import AutoTokenizer, AutoModel, LlamaForCausalLM, LlamaTokenizer, pipeline # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
 import os
@@ -16,6 +16,7 @@ import argparse
 import uvicorn # type: ignore
 import shutil
 from pathlib import Path
+from typing import List, Dict
 
 # Logging ayarları
 logging.basicConfig(level=logging.INFO)
@@ -23,12 +24,65 @@ logger = logging.getLogger(__name__)
 
 # Model isimleri
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "t5-base"
+GENERATION_MODEL_NAME = "meta-llama/Llama-2-7b-chat-hf"
+
+# Sistem promptu
+SYSTEM_PROMPT = """Sen OtomolAI adında, otomotiv üretim verileri konusunda uzmanlaşmış bir yapay zeka asistanısın.
+
+ROL VE KİMLİK:
+- Adın: OtomolAI
+- Konuştuğun kişi: Osman Bey
+- Uzmanlık alanın: Otomotiv üretim verileri analizi ve raporlama
+
+DİL VE İLETİŞİM:
+- Her zaman Türkçe konuşursun
+- Türkçe karakterleri (ğ, ş, ı, ö, ü, ç) doğru kullanırsın
+- Konuşma tarzın profesyonel ama dostanedir
+- Sayısal verileri Türk formatında sunarsın (örn: 1.234.567,89)
+- Tarihleri Türk formatında yazarsın (örn: 15 Ocak 2024)
+
+YETKİNLİKLER:
+- Otomotiv üretim verilerini analiz edebilirsin
+- Üretim yerleri ve markalar hakkında bilgi verebilirsin
+- Üretim miktarları ve tarihler hakkında raporlama yapabilirsin
+- Karşılaştırmalı analizler sunabilirsin
+
+KISITLAMALAR:
+- Sadece verilen bağlam içindeki bilgileri kullanırsın
+- Emin olmadığın konularda dürüstçe bilmediğini söylersin
+- Verilerin dışında tahmin yürütmezsin
+
+BERT ANALİZ KULLANIMI:
+- Soruların bağlamla ilgililik skorunu dikkate alırsın
+- Düşük ilgililik skorunda (< 0.5) kullanıcıyı nazikçe uyarırsın
+- Yüksek ilgililik skorunda (> 0.8) daha detaylı yanıtlar verirsin"""
+
+def format_prompt(query: str, context: str, bert_similarity: float) -> str:
+    """LLaMA-2-chat formatında prompt oluştur"""
+    similarity_note = ""
+    if bert_similarity < 0.5:
+        similarity_note = "\nNot: Sorunuz verilerimizle düşük ilgililik gösteriyor. Lütfen otomotiv üretim verileriyle ilgili daha spesifik bir soru sormayı deneyebilir misiniz?"
+    elif bert_similarity > 0.8:
+        similarity_note = "\nNot: Sorunuz verilerimizle yüksek ilgililik gösteriyor. Size detaylı bir yanıt sunacağım."
+
+    return f"""<s>[SYSTEM]
+{SYSTEM_PROMPT}
+[/SYSTEM]
+
+[USER]
+Bağlam Bilgisi:
+{context}
+
+Soru: {query}{similarity_note}
+[/USER]
+
+[ASSISTANT]
+"""
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
 device = "cuda" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float32  # float16 yerine float32 kullanalım
+torch_dtype = torch.float32
 
 # Türkçe BERT model ve tokenizer yükleme
 try:
@@ -44,34 +98,33 @@ except Exception as e:
     turkish_model = None
     turkish_tokenizer = None
 
-# Üretim modeli yükleme
+# LLaMA modeli yükleme
 try:
-    logger.info("Üretim modeli yükleniyor...")
-    generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
-    generation_model = GPT2LMHeadModel.from_pretrained(
+    logger.info("LLaMA modeli yükleniyor...")
+    llama_tokenizer = LlamaTokenizer.from_pretrained(
         GENERATION_MODEL_NAME,
-        torch_dtype=torch_dtype
-    ).to(device)
-    logger.info("Üretim modeli başarıyla yüklendi")
+        use_auth_token=True
+    )
+    llama_model = LlamaForCausalLM.from_pretrained(
+        GENERATION_MODEL_NAME,
+        torch_dtype=torch_dtype,
+        use_auth_token=True,
+        device_map="auto",
+        load_in_8bit=True
+    )
+    logger.info("LLaMA modeli başarıyla yüklendi")
 except Exception as e:
-    logger.error(f"Üretim modeli yükleme hatası: {str(e)}")
-    generation_model = None
-    generation_tokenizer = None
+    logger.error(f"LLaMA model yükleme hatası: {str(e)}")
+    llama_model = None
+    llama_tokenizer = None
 
-# Text generation pipeline oluştur
-generation_pipeline = pipeline(
-    "text-generation",
-    model=generation_model,
-    tokenizer=generation_tokenizer,
-    device_map="auto",
-    torch_dtype=torch_dtype,
-    max_length=2048,
-    do_sample=True,
-    temperature=0.7,
-    top_p=0.95,
-    top_k=50,
-    repetition_penalty=1.2
-) if generation_model else None
+def calculate_similarity(query_embedding: torch.Tensor, context_embedding: torch.Tensor) -> float:
+    """İki embedding arasındaki benzerliği hesapla"""
+    similarity = torch.nn.functional.cosine_similarity(
+        query_embedding.mean(dim=1),
+        context_embedding.mean(dim=1)
+    )
+    return similarity.item()
 
 app = FastAPI()
 
@@ -256,47 +309,52 @@ async def process_query(query: str) -> str:
         context = generate_context()
         logger.info(f"Oluşturulan context: {context}")
         
-        if not turkish_model or not generation_model:
+        if not turkish_model or not llama_model:
             return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
         
         # 2. BERT ile anlama
-        bert_prompt = f"""Soru: {query}
-Bağlam: {context}"""
-        
-        # BERT tokenization ve çıktı
-        bert_inputs = turkish_tokenizer(
-            bert_prompt,
+        # Soru ve bağlam embeddinglerni oluştur
+        query_inputs = turkish_tokenizer(
+            query,
             return_tensors="pt",
             max_length=512,
             truncation=True,
             padding=True
-        ).to(turkish_model.device)
+        ).to(device)
         
-        bert_outputs = turkish_model(**bert_inputs)
-        bert_embeddings = bert_outputs.last_hidden_state
+        context_inputs = turkish_tokenizer(
+            context,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding=True
+        ).to(device)
         
-        # 3. GPT ile yanıt üretme
-        gpt_prompt = f"""Sen OtomolAI adında bir yapay zeka asistanısın. 
-Konuştuğun kişinin adı Osman Bey. 
-Aşağıdaki soruyu bağlam bilgilerini kullanarak detaylı bir şekilde yanıtla.
-
-Bağlam Bilgisi:
-{context}
-
-Soru: {query}
-
-Yanıt:"""
+        with torch.no_grad():
+            query_outputs = turkish_model(**query_inputs)
+            context_outputs = turkish_model(**context_inputs)
+            
+            # Benzerlik skorunu hesapla
+            similarity = calculate_similarity(
+                query_outputs.last_hidden_state,
+                context_outputs.last_hidden_state
+            )
+            
+            logger.info(f"Soru-Bağlam benzerlik skoru: {similarity:.2f}")
         
-        gpt_inputs = generation_tokenizer(
-            gpt_prompt,
+        # 3. LLaMA ile yanıt üretme
+        prompt = format_prompt(query, context, similarity)
+        
+        inputs = llama_tokenizer(
+            prompt,
             return_tensors="pt",
             max_length=2048,
             truncation=True
-        ).to(generation_model.device)
+        ).to(device)
         
-        # GPT çıktısı üret
-        outputs = generation_model.generate(
-            gpt_inputs.input_ids,
+        # LLaMA çıktısı üret
+        outputs = llama_model.generate(
+            inputs.input_ids,
             max_length=4096,
             do_sample=True,
             temperature=0.3,
@@ -305,16 +363,21 @@ Yanıt:"""
             repetition_penalty=1.2,
             num_return_sequences=1,
             min_length=50,
-            pad_token_id=generation_tokenizer.eos_token_id
+            pad_token_id=llama_tokenizer.eos_token_id
         )
         
         # Yanıtı ayıkla
-        response = generation_tokenizer.decode(outputs[0], skip_special_tokens=True)
-        answer = response.split("Yanıt:")[-1].strip()
+        response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        answer = response.split("[ASSISTANT]")[-1].strip()
         
         # Türkçe son işlemler
-        answer_tokens = turkish_tokenizer.tokenize(answer)
-        answer = turkish_tokenizer.convert_tokens_to_string(answer_tokens)
+        answer_inputs = turkish_tokenizer(
+            answer,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True
+        )
+        answer = turkish_tokenizer.decode(answer_inputs.input_ids[0], skip_special_tokens=True)
         
         # Yanıt kontrolü
         if not answer or len(answer) < 10:

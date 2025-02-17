@@ -62,27 +62,56 @@ BERT ANALİZ KULLANIMI:
 - Yüksek ilgililik skorunda (> 0.8) detaylı yanıtlar ver
 - Her durumda sohbeti sürdürmeye çalış"""
 
+def count_tokens(text: str) -> int:
+    """Verilen metnin token sayısını hesapla"""
+    return len(llama_tokenizer.encode(text))
+
 def format_prompt(query: str, context: str, bert_similarity: float) -> str:
     """LLaMA-2-chat formatında prompt oluştur"""
-    similarity_note = ""
-    if bert_similarity < 0.5:
-        similarity_note = "\nNot: Sorunuz verilerimizle düşük ilgililik gösteriyor. Lütfen otomotiv üretim verileriyle ilgili daha spesifik bir soru sormayı deneyebilir misiniz?"
-    elif bert_similarity > 0.8:
-        similarity_note = "\nNot: Sorunuz verilerimizle yüksek ilgililik gösteriyor. Size detaylı bir yanıt sunacağım."
-
-    return f"""<s>[SYSTEM]
+    
+    # Sistem promptunun token sayısını hesapla
+    system_tokens = count_tokens(SYSTEM_PROMPT)
+    logger.info(f"Sistem prompt token sayısı: {system_tokens}")
+    
+    # Bağlam token sayısını hesapla
+    context_tokens = count_tokens(context)
+    logger.info(f"Bağlam token sayısı: {context_tokens}")
+    
+    # Soru token sayısını hesapla
+    query_tokens = count_tokens(query)
+    logger.info(f"Soru token sayısı: {query_tokens}")
+    
+    # Toplam token sayısı
+    total_tokens = system_tokens + context_tokens + query_tokens
+    logger.info(f"Toplam token sayısı: {total_tokens}")
+    
+    # Token limiti aşılıyorsa bağlamı kısalt
+    if total_tokens > 1500:  # 2048'den güvenli bir sınır
+        logger.warning("Token limiti aşılıyor, bağlam kısaltılıyor...")
+        # Bağlamı cümlelere böl ve önemli olanları seç
+        context_sentences = context.split(". ")
+        # Sadece benzerlik skoru yüksek olan cümleleri al
+        filtered_context = ". ".join(context_sentences[:5]) + "."
+        context = filtered_context
+        logger.info(f"Kısaltılmış bağlam token sayısı: {count_tokens(context)}")
+    
+    # Prompt'u oluştur
+    prompt = f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 [/SYSTEM]
 
 [USER]
-Bağlam Bilgisi:
-{context}
-
-Soru: {query}{similarity_note}
+{query}
 [/USER]
 
 [ASSISTANT]
 """
+    
+    # Son token kontrolü
+    final_tokens = count_tokens(prompt)
+    logger.info(f"Final prompt token sayısı: {final_tokens}")
+    
+    return prompt
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()

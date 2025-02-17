@@ -267,6 +267,53 @@ try:
 except Exception as e:
     print(f"Veritabanı yükleme hatası: {str(e)}")
 
+def find_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
+    """Soruyla en alakalı bağlam parçalarını bul"""
+    # Türkçe karakterleri düzgün işle
+    query = query.lower().replace('i̇', 'i')
+    
+    # Stopwords - Türkçe bağlaçlar ve gereksiz kelimeler
+    stopwords = {'ve', 'veya', 'ile', 'de', 'da', 'ki', 'bu', 'şu', 'bir', 'için', 'gibi', 'kadar', 'sonra', 'önce', 'kaç', 'ne', 'nerede', 'nasıl'}
+    
+    # Sorguyu temizle
+    query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
+    
+    # Her chunk için benzerlik hesapla
+    chunk_scores = []
+    for chunk in chunks:
+        chunk = chunk.lower().replace('i̇', 'i')
+        chunk_words = set(word.strip('.,?!') for word in chunk.split() if word.strip('.,?!') not in stopwords)
+        
+        # Özel kelimelere daha fazla ağırlık ver
+        special_words = {'marka', 'üretim', 'yukleme', 'adet', 'fabrika', 'toplam', 'mercedes', 'bmw', 'audi', 'volkswagen', 'istanbul', 'ankara', 'izmir', 'bursa'}
+        
+        # Benzerlik skorunu hesapla
+        common_words = query_words & chunk_words
+        special_common_words = common_words & special_words
+        
+        # Özel kelimeler için ekstra puan
+        score = len(common_words) + len(special_common_words) * 2
+        
+        # Marka ve şehir eşleşmelerine ekstra puan ver
+        for marka in ['mercedes', 'bmw', 'audi', 'volkswagen']:
+            if marka in query_words and marka in chunk_words:
+                score += 3
+                
+        for sehir in ['istanbul', 'ankara', 'izmir', 'bursa']:
+            if sehir in query_words and sehir in chunk_words:
+                score += 3
+        
+        # Tarih eşleşmesine puan ver
+        if any(gun in query for gun in [str(i) for i in range(1, 32)]):
+            if any(gun in chunk for gun in [str(i) for i in range(1, 32)]):
+                score += 2
+        
+        chunk_scores.append((score, chunk))
+    
+    # En yüksek skorlu chunk'ları seç
+    chunk_scores.sort(reverse=True)
+    return [chunk for score, chunk in chunk_scores[:top_k] if score > 0]
+
 def create_data_chunks() -> List[str]:
     """Veritabanındaki kayıtları anlamlı parçalara böl"""
     chunks = []
@@ -274,53 +321,12 @@ def create_data_chunks() -> List[str]:
     for ay in DATABASE:
         for gun in DATABASE[ay]:
             for kayit in DATABASE[ay][gun]:
-                # Her bir kaydı ayrı bir chunk olarak al
+                # Her bir kaydı ayrı bir chunk olarak al ve Türkçe karakterleri düzelt
                 chunk = f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet üretim yaptı."
+                chunk = chunk.replace('i̇', 'i')  # Türkçe karakter düzeltmesi
                 chunks.append(chunk)
     
     return chunks
-
-def find_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-    """Soruyla en alakalı chunk'ları bul"""
-    # Query embedding'i hesapla
-    query_inputs = turkish_tokenizer(
-        query,
-        return_tensors="pt",
-        max_length=512,
-        truncation=True,
-        padding=True
-    ).to(device)
-    
-    with torch.no_grad():
-        query_outputs = turkish_model(**query_inputs)
-        query_embedding = query_outputs.last_hidden_state[:, 0, :]
-    
-    # Her chunk için benzerlik hesapla
-    similarities = []
-    for chunk in chunks:
-        chunk_inputs = turkish_tokenizer(
-            chunk,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        ).to(device)
-        
-        with torch.no_grad():
-            chunk_outputs = turkish_model(**chunk_inputs)
-            chunk_embedding = chunk_outputs.last_hidden_state[:, 0, :]
-            
-            # Benzerlik skoru hesapla
-            similarity = torch.nn.functional.cosine_similarity(
-                query_embedding,
-                chunk_embedding
-            ).item()
-            
-            similarities.append((similarity, chunk))
-    
-    # En alakalı chunk'ları seç
-    similarities.sort(reverse=True)
-    return [chunk for _, chunk in similarities[:top_k]]
 
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):
@@ -449,7 +455,7 @@ async def websocket_endpoint(websocket: WebSocket):
         raise
 
 async def process_query(query: str) -> str:
-    query = query.lower()
+    query = query.lower().replace('i̇', 'i')  # Türkçe karakter düzeltmesi
     logger.info(f"İşlenen soru: {query}")
     
     try:
@@ -457,7 +463,7 @@ async def process_query(query: str) -> str:
             return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
         
         # Basit selamlaşma kontrolü
-        basic_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "nasılsın", "naber"]
+        basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
         if any(greeting in query for greeting in basic_greetings):
             return "Merhaba! Ben OtomolAI. Size otomotiv üretim verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
         
@@ -466,6 +472,9 @@ async def process_query(query: str) -> str:
         
         # Soruyla alakalı chunk'ları bul
         relevant_chunks = find_relevant_chunks(query, chunks)
+        
+        if not relevant_chunks:
+            return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
         # Prompt oluştur
         prompt = f"""<s>[SYSTEM]

@@ -385,6 +385,11 @@ async def process_query(query: str) -> str:
         answer = answer.replace("[/SYSTEM]", "").strip()
         answer = answer.replace("[USER]", "").strip()
         answer = answer.replace("[/USER]", "").strip()
+        # Bağlam bilgisini temizle
+        answer = answer.replace("Bağlam Bilgisi:", "").strip()
+        answer = answer.replace(context, "").strip()
+        # Birden fazla boşluk ve satır sonlarını temizle
+        answer = " ".join(answer.split())
         
         # Türkçe son işlemler
         answer_inputs = turkish_tokenizer(

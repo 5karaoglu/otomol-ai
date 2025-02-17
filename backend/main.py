@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline # type: ignore
+from transformers import AutoTokenizer, AutoModel, AutoModelForCausalLM, pipeline # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
 import os
@@ -29,7 +29,7 @@ logger.info(f"Model cache dizini: {CACHE_DIR}")
 
 # Model isimleri ve cache kontrol
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "ai-forever/mGPT"
+GENERATION_MODEL_NAME = "Helsinki-NLP/opus-mt-tr-en"
 
 def check_cached_model(model_name: str) -> bool:
     """Model cache'de var mı kontrol et"""
@@ -53,7 +53,7 @@ try:
         cache_dir=CACHE_DIR,
         local_files_only=check_cached_model(TURKISH_MODEL_NAME)
     )
-    turkish_model = AutoModelForCausalLM.from_pretrained(
+    turkish_model = AutoModel.from_pretrained(
         TURKISH_MODEL_NAME,
         torch_dtype=torch_dtype,
         cache_dir=CACHE_DIR,

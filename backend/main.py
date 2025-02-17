@@ -33,7 +33,7 @@ GENERATION_MODEL_NAME = "ai-forever/mGPT"
 
 def check_cached_model(model_name: str) -> bool:
     """Model cache'de var mı kontrol et"""
-    model_cache = CACHE_DIR / "models--" + model_name.replace("/", "--")
+    model_cache = CACHE_DIR / f"models--{model_name.replace('/', '--')}"
     return model_cache.exists()
 
 # GPU bellek optimizasyonları

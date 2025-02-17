@@ -459,7 +459,7 @@ async def process_query(query: str) -> str:
         # Basit selamlaşma kontrolü
         basic_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "nasılsın", "naber"]
         if any(greeting in query for greeting in basic_greetings):
-            return "Merhaba! Size otomotiv üretim verileri konusunda nasıl yardımcı olabilirim?"
+            return "Merhaba! Ben OtomolAI. Size otomotiv üretim verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
         
         # Veritabanı chunk'larını oluştur
         chunks = create_data_chunks()
@@ -469,7 +469,18 @@ async def process_query(query: str) -> str:
         
         # Prompt oluştur
         prompt = f"""<s>[SYSTEM]
-Sen otomotiv üretim verilerini analiz eden bir asistansın. Kısa ve öz cevaplar ver.
+Sen Türkçe konuşan bir otomotiv üretim verileri uzmanısın. Yanıtlarında şu kurallara uymalısın:
+
+1. Her zaman Türkçe karakterleri doğru kullan (ğ, ş, ı, ö, ü, ç, İ)
+2. Sayıları Türk formatında yaz (örnek: 1.234.567)
+3. Kısa ve öz cevaplar ver
+4. Nazik ve profesyonel bir dil kullan
+5. Cümleleri düzgün Türkçe dilbilgisi ile kur
+6. Teknik terimleri Türkçe karşılıklarıyla kullan
+
+Yanıtını oluştururken bu örnekteki gibi düzgün Türkçe kullan:
+"BMW'nin İstanbul'daki üretimi 45.123 adettir."
+"Mercedes'in Ankara fabrikasında 25.678 adet üretim yapılmıştır."
 [/SYSTEM]
 
 [USER]
@@ -506,6 +517,20 @@ Soru: {query}
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
         answer = response.split("[ASSISTANT]")[-1].strip()
         answer = " ".join(answer.split())
+        
+        # Türkçe karakter düzeltmeleri
+        answer = answer.replace('i̇', 'i').replace('İ', 'İ')
+        
+        # Sayı formatı düzeltmeleri
+        import re
+        def format_number(match):
+            number = match.group(0)
+            try:
+                return "{:,.0f}".format(float(number)).replace(",", ".")
+            except:
+                return number
+        
+        answer = re.sub(r'\d+', format_number, answer)
         
         if not answer or len(answer) < 5:
             return "Üzgünüm, sorunuzu anlayamadım. Lütfen başka bir şekilde sorar mısınız?"

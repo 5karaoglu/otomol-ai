@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Model isimleri
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
 GENERATION_MODEL_NAME = "meta-llama/Llama-2-7b-chat-hf"
+HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")  # Token'ı environment variable'dan al
 
 # Sistem promptu
 SYSTEM_PROMPT = """Sen OtomolAI adında, otomotiv üretim verileri konusunda uzmanlaşmış bir yapay zeka asistanısın.
@@ -103,12 +104,12 @@ try:
     logger.info("LLaMA modeli yükleniyor...")
     llama_tokenizer = LlamaTokenizer.from_pretrained(
         GENERATION_MODEL_NAME,
-        token="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"
+        token=HF_TOKEN
     )
     llama_model = LlamaForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
         torch_dtype=torch_dtype,
-        token="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",
+        token=HF_TOKEN,
         device_map="auto",
         load_in_8bit=True
     )

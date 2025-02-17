@@ -103,12 +103,12 @@ try:
     logger.info("LLaMA modeli yükleniyor...")
     llama_tokenizer = LlamaTokenizer.from_pretrained(
         GENERATION_MODEL_NAME,
-        use_auth_token=True
+        token="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"
     )
     llama_model = LlamaForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
         torch_dtype=torch_dtype,
-        use_auth_token=True,
+        token="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",
         device_map="auto",
         load_in_8bit=True
     )

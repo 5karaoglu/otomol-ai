@@ -66,37 +66,87 @@ def count_tokens(text: str) -> int:
     """Verilen metnin token sayısını hesapla"""
     return len(llama_tokenizer.encode(text))
 
+def split_into_chunks(text: str, chunk_size: int = 200) -> List[str]:
+    """Metni anlamlı parçalara böl"""
+    sentences = text.split(". ")
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    for sentence in sentences:
+        sentence = sentence.strip() + "."
+        sentence_length = len(sentence.split())
+        
+        if current_length + sentence_length > chunk_size:
+            if current_chunk:
+                chunks.append(" ".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+        
+        current_chunk.append(sentence)
+        current_length += sentence_length
+    
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    
+    return chunks
+
+def create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor:
+    """Metinlerin embedding'lerini oluştur"""
+    embeddings = []
+    
+    for text in texts:
+        inputs = tokenizer(
+            text,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding=True
+        ).to(device)
+        
+        with torch.no_grad():
+            outputs = model(**inputs)
+            # CLS token'ının embedding'ini al
+            embedding = outputs.last_hidden_state[:, 0, :]
+            embeddings.append(embedding)
+    
+    return torch.cat(embeddings, dim=0)
+
+def retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
+    """Soruya en alakalı bağlam parçalarını bul"""
+    # Query embedding'i hesapla
+    query_inputs = turkish_tokenizer(
+        query,
+        return_tensors="pt",
+        max_length=512,
+        truncation=True,
+        padding=True
+    ).to(device)
+    
+    with torch.no_grad():
+        query_outputs = turkish_model(**query_inputs)
+        query_embedding = query_outputs.last_hidden_state[:, 0, :]
+    
+    # Chunk embedding'lerini hesapla
+    chunk_embeddings = create_embeddings(chunks, turkish_model, turkish_tokenizer)
+    
+    # Benzerlik skorlarını hesapla
+    similarities = torch.nn.functional.cosine_similarity(
+        query_embedding,
+        chunk_embeddings
+    )
+    
+    # En alakalı chunk'ları seç
+    top_indices = torch.argsort(similarities, descending=True)[:top_k]
+    return [chunks[i] for i in top_indices]
+
 def format_prompt(query: str, context: str, bert_similarity: float) -> str:
     """LLaMA-2-chat formatında prompt oluştur"""
     
-    # Sistem promptunun token sayısını hesapla
-    system_tokens = count_tokens(SYSTEM_PROMPT)
-    logger.info(f"Sistem prompt token sayısı: {system_tokens}")
-    
-    # Bağlam token sayısını hesapla
-    context_tokens = count_tokens(context)
-    logger.info(f"Bağlam token sayısı: {context_tokens}")
-    
-    # Soru token sayısını hesapla
-    query_tokens = count_tokens(query)
-    logger.info(f"Soru token sayısı: {query_tokens}")
-    
-    # Toplam token sayısı
-    total_tokens = system_tokens + context_tokens + query_tokens
-    logger.info(f"Toplam token sayısı: {total_tokens}")
-    
-    # Token limiti aşılıyorsa bağlamı kısalt
-    if total_tokens > 1500:  # 2048'den güvenli bir sınır
-        logger.warning("Token limiti aşılıyor, bağlam kısaltılıyor...")
-        # Bağlamı cümlelere böl ve önemli olanları seç
-        context_sentences = context.split(". ")
-        # Sadece benzerlik skoru yüksek olan cümleleri al
-        filtered_context = ". ".join(context_sentences[:5]) + "."
-        context = filtered_context
-        logger.info(f"Kısaltılmış bağlam token sayısı: {count_tokens(context)}")
-    
-    # Prompt'u oluştur
-    prompt = f"""<s>[SYSTEM]
+    # Basit selamlaşma kontrolü
+    basic_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "nasılsın", "naber"]
+    if any(greeting in query.lower() for greeting in basic_greetings):
+        return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 [/SYSTEM]
 
@@ -105,13 +155,38 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
 [/USER]
 
 [ASSISTANT]
+Merhaba! Ben OtomolAI. Size otomotiv üretim verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?
 """
     
-    # Son token kontrolü
-    final_tokens = count_tokens(prompt)
-    logger.info(f"Final prompt token sayısı: {final_tokens}")
+    # Bağlamı parçalara böl
+    chunks = split_into_chunks(context)
     
-    return prompt
+    # En alakalı parçaları bul
+    relevant_chunks = retrieve_relevant_chunks(query, chunks)
+    
+    # Alakalı parçaları birleştir
+    relevant_context = " ".join(relevant_chunks)
+    
+    return f"""<s>[SYSTEM]
+{SYSTEM_PROMPT}
+
+ÖNEMLİ TALİMAT: Aşağıdaki bağlam bilgisini kullanarak soruya yanıt ver:
+1. Bağlamdaki bilgileri analiz et ve soruyla ilgili kısımları belirle
+2. Bilgileri kendi cümlelerinle, doğal bir şekilde ifade et
+3. Sayısal verileri anlamlı şekilde özetle
+4. Emin olmadığın konularda dürüstçe belirt
+[/SYSTEM]
+
+[USER]
+<CONTEXT>
+{relevant_context}
+</CONTEXT>
+
+Soru: {query}
+[/USER]
+
+[ASSISTANT]
+"""
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()

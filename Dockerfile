@@ -35,7 +35,7 @@ RUN mkdir -p /etc/nginx/ssl
 
 # Backend bağımlılıklarını kopyala ve yükle
 COPY backend/requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && pip install protobuf
 
 # Frontend bağımlılıklarını kopyala ve yükle
 COPY frontend/package*.json frontend/

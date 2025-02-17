@@ -267,66 +267,84 @@ try:
 except Exception as e:
     print(f"Veritabanı yükleme hatası: {str(e)}")
 
-def find_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-    """Soruyla en alakalı bağlam parçalarını bul"""
+def create_data_chunks() -> List[Dict]:
+    """Veritabanındaki kayıtları yapılandırılmış parçalara böl"""
+    chunks = []
+    
+    for ay in DATABASE:
+        for gun in DATABASE[ay]:
+            for kayit in DATABASE[ay][gun]:
+                # Her kaydı yapılandırılmış bir sözlük olarak sakla
+                chunk = {
+                    'text': f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet üretim yaptı.",
+                    'metadata': {
+                        'ay': ay,
+                        'gun': int(gun),
+                        'marka': kayit['marka'].lower(),
+                        'uretim_yeri': kayit['uretim_yeri'].lower(),
+                        'yukleme_adedi': kayit['yukleme_adedi']
+                    }
+                }
+                chunks.append(chunk)
+    
+    return chunks
+
+def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List[str]:
+    """Soruyla en alakalı chunk'ları bul"""
     # Türkçe karakterleri düzgün işle
     query = query.lower().replace('i̇', 'i')
     
     # Stopwords - Türkçe bağlaçlar ve gereksiz kelimeler
     stopwords = {'ve', 'veya', 'ile', 'de', 'da', 'ki', 'bu', 'şu', 'bir', 'için', 'gibi', 'kadar', 'sonra', 'önce', 'kaç', 'ne', 'nerede', 'nasıl'}
     
-    # Sorguyu temizle
+    # Sorguyu temizle ve analiz et
     query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
     
-    # Her chunk için benzerlik hesapla
+    # Tarih bilgisini analiz et
+    gun_match = None
+    for word in query_words:
+        if word.isdigit() and 1 <= int(word) <= 31:
+            gun_match = int(word)
+            break
+    
+    # Marka ve şehir bilgisini analiz et
+    marka_match = None
+    sehir_match = None
+    for word in query_words:
+        if word in ['mercedes', 'bmw', 'audi', 'volkswagen']:
+            marka_match = word
+        elif word in ['istanbul', 'ankara', 'izmir', 'bursa']:
+            sehir_match = word
+    
+    # Chunk'ları skorla
     chunk_scores = []
     for chunk in chunks:
-        chunk = chunk.lower().replace('i̇', 'i')
-        chunk_words = set(word.strip('.,?!') for word in chunk.split() if word.strip('.,?!') not in stopwords)
+        metadata = chunk['metadata']
+        score = 0
         
-        # Özel kelimelere daha fazla ağırlık ver
-        special_words = {'marka', 'üretim', 'yukleme', 'adet', 'fabrika', 'toplam', 'mercedes', 'bmw', 'audi', 'volkswagen', 'istanbul', 'ankara', 'izmir', 'bursa'}
+        # Tam tarih eşleşmesi
+        if gun_match and metadata['gun'] == gun_match:
+            score += 10
         
-        # Benzerlik skorunu hesapla
+        # Tam marka eşleşmesi
+        if marka_match and metadata['marka'] == marka_match:
+            score += 5
+        
+        # Tam şehir eşleşmesi
+        if sehir_match and metadata['uretim_yeri'] == sehir_match:
+            score += 5
+        
+        # Kelime bazlı benzerlik
+        chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
         common_words = query_words & chunk_words
-        special_common_words = common_words & special_words
+        score += len(common_words)
         
-        # Özel kelimeler için ekstra puan
-        score = len(common_words) + len(special_common_words) * 2
-        
-        # Marka ve şehir eşleşmelerine ekstra puan ver
-        for marka in ['mercedes', 'bmw', 'audi', 'volkswagen']:
-            if marka in query_words and marka in chunk_words:
-                score += 3
-                
-        for sehir in ['istanbul', 'ankara', 'izmir', 'bursa']:
-            if sehir in query_words and sehir in chunk_words:
-                score += 3
-        
-        # Tarih eşleşmesine puan ver
-        if any(gun in query for gun in [str(i) for i in range(1, 32)]):
-            if any(gun in chunk for gun in [str(i) for i in range(1, 32)]):
-                score += 2
-        
-        chunk_scores.append((score, chunk))
+        if score > 0:
+            chunk_scores.append((score, chunk['text']))
     
     # En yüksek skorlu chunk'ları seç
     chunk_scores.sort(reverse=True)
-    return [chunk for score, chunk in chunk_scores[:top_k] if score > 0]
-
-def create_data_chunks() -> List[str]:
-    """Veritabanındaki kayıtları anlamlı parçalara böl"""
-    chunks = []
-    
-    for ay in DATABASE:
-        for gun in DATABASE[ay]:
-            for kayit in DATABASE[ay][gun]:
-                # Her bir kaydı ayrı bir chunk olarak al ve Türkçe karakterleri düzelt
-                chunk = f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet üretim yaptı."
-                chunk = chunk.replace('i̇', 'i')  # Türkçe karakter düzeltmesi
-                chunks.append(chunk)
-    
-    return chunks
+    return [chunk for _, chunk in chunk_scores[:top_k]]
 
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):
@@ -455,12 +473,12 @@ async def websocket_endpoint(websocket: WebSocket):
         raise
 
 async def process_query(query: str) -> str:
-    query = query.lower().replace('i̇', 'i')  # Türkçe karakter düzeltmesi
+    query = query.lower().replace('i̇', 'i')
     logger.info(f"İşlenen soru: {query}")
     
     try:
-        if not turkish_model or not llama_model:
-            return "Üzgünüm, modeller yüklenemediği için şu anda hizmet veremiyorum."
+        if not llama_model:
+            return "Üzgünüm, model yüklenemediği için şu anda hizmet veremiyorum."
         
         # Basit selamlaşma kontrolü
         basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
@@ -485,7 +503,7 @@ Sen Türkçe konuşan bir otomotiv üretim verileri uzmanısın. Yanıtlarında 
 3. Kısa ve öz cevaplar ver
 4. Nazik ve profesyonel bir dil kullan
 5. Cümleleri düzgün Türkçe dilbilgisi ile kur
-6. Teknik terimleri Türkçe karşılıklarıyla kullan
+6. Sadece sorulan bilgiyi ver, fazladan bilgi ekleme
 
 Yanıtını oluştururken bu örnekteki gibi düzgün Türkçe kullan:
 "BMW'nin İstanbul'daki üretimi 45.123 adettir."

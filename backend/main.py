@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, pipeline # type: ignore
+from transformers import AutoTokenizer, AutoModel, AutoModelForSeq2SeqLM, T5ForConditionalGeneration, pipeline # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
 import os
@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Model isimleri
-TURKISH_MODEL_NAME = "yandex/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "facebook/mbart-large-50"
+TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
+GENERATION_MODEL_NAME = "t5-base"
 
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
@@ -48,7 +48,7 @@ except Exception as e:
 try:
     logger.info("Üretim modeli yükleniyor...")
     generation_tokenizer = AutoTokenizer.from_pretrained(GENERATION_MODEL_NAME)
-    generation_model = AutoModelForSeq2SeqLM.from_pretrained(
+    generation_model = T5ForConditionalGeneration.from_pretrained(
         GENERATION_MODEL_NAME,
         torch_dtype=torch_dtype
     ).to(device)

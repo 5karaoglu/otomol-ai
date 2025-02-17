@@ -369,7 +369,14 @@ async def process_query(query: str) -> str:
         
         # Yanıtı ayıkla
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Sadece [ASSISTANT] sonrasındaki kısmı al
         answer = response.split("[ASSISTANT]")[-1].strip()
+        # Sistem promptunu ve diğer etiketleri temizle
+        answer = answer.replace(SYSTEM_PROMPT, "").strip()
+        answer = answer.replace("[SYSTEM]", "").strip()
+        answer = answer.replace("[/SYSTEM]", "").strip()
+        answer = answer.replace("[USER]", "").strip()
+        answer = answer.replace("[/USER]", "").strip()
         
         # Türkçe son işlemler
         answer_inputs = turkish_tokenizer(

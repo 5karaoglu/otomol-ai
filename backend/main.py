@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Model isimleri
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "meta-llama/Llama-2-7b-chat-hf"
+GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")  # Token'ı environment variable'dan al
 
 # Sistem promptu

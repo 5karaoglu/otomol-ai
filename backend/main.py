@@ -253,16 +253,16 @@ if torch.cuda.is_available():
 # Sabit değerler
 BOT_NAME = "OtomolAi"
 USER_NAME = "Osman Bey"
-MARKALAR = ["Mercedes", "BMW", "Audi", "Volkswagen"]
-URETIM_YERLERI = ["İstanbul", "Ankara", "İzmir", "Bursa"]
+MARKALAR = ["BMW", "MERCEDES BENZ", "AUDI", "VOLVO", "VOLKSWAGEN", "TESLA", "SEAT", "SKODA"]
+SUBELER = ["MERTER", "MASLAK", "ATAŞEHİR", "İZMİR", "BODRUM", "ÇANKAYA", "ÇAYYOLU", "ANTALYA"]
 
 # Veritabanı
 DATABASE = {}
 
 # Başlangıçta veritabanını yükle
 try:
-    with open("example_database.json", "r") as f:
-        DATABASE.update(json.load(f))
+    with open("ocak_data.json", "r", encoding='utf-8') as f:
+        DATABASE = json.load(f)
     print("Veritabanı başarıyla yüklendi")
 except Exception as e:
     print(f"Veritabanı yükleme hatası: {str(e)}")
@@ -271,21 +271,21 @@ def create_data_chunks() -> List[Dict]:
     """Veritabanındaki kayıtları yapılandırılmış parçalara böl"""
     chunks = []
     
-    for ay in DATABASE:
-        for gun in DATABASE[ay]:
-            for kayit in DATABASE[ay][gun]:
-                # Her kaydı yapılandırılmış bir sözlük olarak sakla
-                chunk = {
-                    'text': f"{ay} ayı {gun}. günü {kayit['marka']} markası {kayit['uretim_yeri']} üretim yerinde {kayit['yukleme_adedi']} adet üretim yaptı.",
-                    'metadata': {
-                        'ay': ay,
-                        'gun': int(gun),
-                        'marka': kayit['marka'].lower(),
-                        'uretim_yeri': kayit['uretim_yeri'].lower(),
-                        'yukleme_adedi': kayit['yukleme_adedi']
-                    }
-                }
-                chunks.append(chunk)
+    for kayit in DATABASE.get("Sheet1", []):
+        # Her kaydı yapılandırılmış bir sözlük olarak sakla
+        chunk = {
+            'text': f"{kayit['Ay']} ayında {kayit['Şube']} şubesinde {kayit['Marka']} markasından {kayit['Araç Çıkış Adedi']} adet araç çıkışı yapıldı ve {kayit['Ciro']} TL ciro elde edildi.",
+            'metadata': {
+                'sube': kayit['Şube'].lower(),
+                'marka': kayit['Marka'].lower(),
+                'ay': kayit['Ay'].lower(),
+                'yil': kayit['Yıl'],
+                'arac_cikis': kayit['Araç Çıkış Adedi'],
+                'ciro': kayit['Ciro'],
+                'tarih': kayit['Tarih']
+            }
+        }
+        chunks.append(chunk)
     
     return chunks
 
@@ -300,21 +300,21 @@ def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List
     # Sorguyu temizle ve analiz et
     query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
     
-    # Tarih bilgisini analiz et
-    gun_match = None
-    for word in query_words:
-        if word.isdigit() and 1 <= int(word) <= 31:
-            gun_match = int(word)
-            break
-    
-    # Marka ve şehir bilgisini analiz et
+    # Şube ve marka bilgisini analiz et
+    sube_match = None
     marka_match = None
-    sehir_match = None
+    
     for word in query_words:
-        if word in ['mercedes', 'bmw', 'audi', 'volkswagen']:
-            marka_match = word
-        elif word in ['istanbul', 'ankara', 'izmir', 'bursa']:
-            sehir_match = word
+        # Şube eşleşmesi
+        for sube in SUBELER:
+            if word in sube.lower():
+                sube_match = sube.lower()
+                break
+        # Marka eşleşmesi
+        for marka in MARKALAR:
+            if word in marka.lower():
+                marka_match = marka.lower()
+                break
     
     # Chunk'ları skorla
     chunk_scores = []
@@ -322,22 +322,24 @@ def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List
         metadata = chunk['metadata']
         score = 0
         
-        # Tam tarih eşleşmesi
-        if gun_match and metadata['gun'] == gun_match:
-            score += 10
-        
-        # Tam marka eşleşmesi
-        if marka_match and metadata['marka'] == marka_match:
+        # Şube eşleşmesi
+        if sube_match and sube_match in metadata['sube']:
             score += 5
         
-        # Tam şehir eşleşmesi
-        if sehir_match and metadata['uretim_yeri'] == sehir_match:
+        # Marka eşleşmesi
+        if marka_match and marka_match in metadata['marka']:
             score += 5
         
         # Kelime bazlı benzerlik
         chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
         common_words = query_words & chunk_words
         score += len(common_words)
+        
+        # Ciro veya araç sayısı sorgusu
+        if any(word in query_words for word in ['ciro', 'kazanç', 'para', 'gelir', 'tl']):
+            score += 3
+        if any(word in query_words for word in ['araç', 'arac', 'satış', 'satis', 'adet']):
+            score += 3
         
         if score > 0:
             chunk_scores.append((score, chunk['text']))

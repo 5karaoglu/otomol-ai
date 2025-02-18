@@ -1,0 +1,211 @@
+{
+"Sheet1":[
+ {
+  "Şube": "MERTER",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 855,
+  "Ciro": 820417
+ },
+ {
+  "Şube": "MERTER",
+  "Marka": "MERCEDES BENZ",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 450,
+  "Ciro": 297880
+ },
+ {
+  "Şube": "MERTER",
+  "Marka": "AUDI",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 329,
+  "Ciro": 495000
+ },
+ {
+  "Şube": "MERTER",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 287,
+  "Ciro": 290000
+ },
+ {
+  "Şube": "MERTER",
+  "Marka": "TESLA",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 52,
+  "Ciro": 115000
+ },
+ {
+  "Şube": "MASLAK",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 293,
+  "Ciro": 199000
+ },
+ {
+  "Şube": "MASLAK",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 382,
+  "Ciro": 362500
+ },
+ {
+  "Şube": "ATAŞEHİR",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 602,
+  "Ciro": 377000
+ },
+ {
+  "Şube": "ATAŞEHİR",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 298,
+  "Ciro": 214611
+ },
+ {
+  "Şube": "İZMİR",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 464,
+  "Ciro": 251613
+ },
+ {
+  "Şube": "İZMİR",
+  "Marka": "MERCEDES BENZ",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 220,
+  "Ciro": 122700
+ },
+ {
+  "Şube": "İZMİR",
+  "Marka": "VOLKSWAGEN",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 198,
+  "Ciro": 158157
+ },
+ {
+  "Şube": "İZMİR",
+  "Marka": "AUDI",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 84,
+  "Ciro": 57193
+ },
+ {
+  "Şube": "BODRUM",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 55,
+  "Ciro": 43000
+ },
+ {
+  "Şube": "BODRUM",
+  "Marka": "MERCEDES BENZ",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 113,
+  "Ciro": 104300
+ },
+ {
+  "Şube": "BODRUM",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 168,
+  "Ciro": 132877
+ },
+ {
+  "Şube": "ÇANKAYA",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 413,
+  "Ciro": 241220
+ },
+ {
+  "Şube": "ÇAYYOLU",
+  "Marka": "BMW",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 97,
+  "Ciro": 55196
+ },
+ {
+  "Şube": "ÇAYYOLU",
+  "Marka": "VOLKSWAGEN",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 242,
+  "Ciro": 79097
+ },
+ {
+  "Şube": "ÇAYYOLU",
+  "Marka": "VOLVO",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 272,
+  "Ciro": 206791
+ },
+ {
+  "Şube": "ANTALYA",
+  "Marka": "VOLKSWAGEN",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 154,
+  "Ciro": 104210
+ },
+ {
+  "Şube": "ANTALYA",
+  "Marka": "SEAT",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 50,
+  "Ciro": 22628
+ },
+ {
+  "Şube": "ANTALYA",
+  "Marka": "SKODA",
+  "Tarih": "01\/31\/2024",
+  "Ay": "Ocak",
+  "Yıl": 2025,
+  "Araç Çıkış Adedi": 52,
+  "Ciro": 27713
+ }
+]
+}

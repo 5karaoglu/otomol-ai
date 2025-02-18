@@ -261,17 +261,24 @@ DATABASE = {}
 
 # Başlangıçta veritabanını yükle
 try:
-    with open("ocak_data.json", "r", encoding='utf-8') as f:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(current_dir, "ocak_data.json")
+    with open(db_path, "r", encoding='utf-8') as f:
         DATABASE = json.load(f)
-    print("Veritabanı başarıyla yüklendi")
+    logger.info("Veritabanı başarıyla yüklendi")
+    logger.info(f"Yüklenen kayıt sayısı: {len(DATABASE.get('Sheet1', []))}")
 except Exception as e:
-    print(f"Veritabanı yükleme hatası: {str(e)}")
+    logger.error(f"Veritabanı yükleme hatası: {str(e)}")
 
 def create_data_chunks() -> List[Dict]:
     """Veritabanındaki kayıtları yapılandırılmış parçalara böl"""
     chunks = []
     
-    for kayit in DATABASE.get("Sheet1", []):
+    if not DATABASE or 'Sheet1' not in DATABASE:
+        logger.error("Veritabanı boş veya hatalı format")
+        return chunks
+    
+    for kayit in DATABASE['Sheet1']:
         # Her kaydı yapılandırılmış bir sözlük olarak sakla
         chunk = {
             'text': f"{kayit['Ay']} ayında {kayit['Şube']} şubesinde {kayit['Marka']} markasından {kayit['Araç Çıkış Adedi']} adet araç çıkışı yapıldı ve {kayit['Ciro']} TL ciro elde edildi.",
@@ -287,6 +294,7 @@ def create_data_chunks() -> List[Dict]:
         }
         chunks.append(chunk)
     
+    logger.info(f"Oluşturulan chunk sayısı: {len(chunks)}")
     return chunks
 
 def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List[str]:
@@ -490,8 +498,12 @@ async def process_query(query: str) -> str:
         # Veritabanı chunk'larını oluştur
         chunks = create_data_chunks()
         
+        if not chunks:
+            return "Üzgünüm, veritabanında hiç veri bulunamadı."
+        
         # Soruyla alakalı chunk'ları bul
         relevant_chunks = find_relevant_chunks(query, chunks)
+        logger.info(f"Bulunan alakalı chunk sayısı: {len(relevant_chunks)}")
         
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"

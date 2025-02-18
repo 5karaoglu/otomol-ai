@@ -500,6 +500,29 @@ async def process_query(query: str) -> str:
         
         if not chunks:
             return "Üzgünüm, veritabanında hiç veri bulunamadı."
+            
+        # Spesifik sorgular için direkt veritabanından yanıt oluştur
+        if any(word in query.lower() for word in ['kaç', 'adet', 'tane']):
+            sube = None
+            marka = None
+            
+            # Şube kontrolü
+            for s in SUBELER:
+                if s.lower() in query.lower():
+                    sube = s
+                    break
+                    
+            # Marka kontrolü
+            for m in MARKALAR:
+                if m.lower() in query.lower():
+                    marka = m
+                    break
+            
+            if sube and marka:
+                for chunk in chunks:
+                    if chunk['metadata']['sube'].lower() == sube.lower() and chunk['metadata']['marka'].lower() == marka.lower():
+                        return f"{sube} şubesinden {marka} marka {chunk['metadata']['arac_cikis']:,} adet araç çıkışı yapılmıştır.".replace(",", ".")
+                return f"{sube} şubesinde {marka} marka araç satışı bulunmamaktadır."
         
         # Soruyla alakalı chunk'ları bul
         relevant_chunks = find_relevant_chunks(query, chunks)
@@ -508,30 +531,20 @@ async def process_query(query: str) -> str:
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
-        # Toplam hesaplama sorguları için veriyi hazırla
-        if any(word in query.lower() for word in ['toplam', 'tüm', 'hepsi', 'kaç']):
-            total = 0
-            for chunk in chunks:
-                total += chunk['metadata']['arac_cikis']
-            context = f"Ocak ayında toplam {total:,} adet araç satışı gerçekleşti.".replace(",", ".")
-            relevant_chunks = [context]
-        
         # Chat mesajlarını oluştur
         messages = [
             {
                 "role": "system",
                 "content": """Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
 
-1. Sadece Türkçe yanıt ver
-2. Her zaman tam ve düzgün Türkçe cümleler kur
-3. Yanıtların anlamlı ve mantıklı olmalı
-4. Gereksiz kelimeler kullanma
-5. Sadece sorulan bilgiyi ver
-6. Sayıları Türk formatında yaz (örnek: 1.234)
-7. Cümlelerin özne-yüklem uyumuna dikkat et
-8. Cevabını tek bir cümle halinde ver
-9. Asla İngilizce kelime kullanma
-10. Dolar, Euro gibi para birimlerinden bahsetme"""
+1. Sadece veritabanındaki gerçek verileri kullan
+2. Olmayan markalar veya şubeler hakkında yorum yapma
+3. Her zaman tam ve düzgün Türkçe cümleler kur
+4. Sadece sorulan bilgiyi ver
+5. Sayıları Türk formatında yaz (örnek: 1.234)
+6. Cevabını tek bir cümle halinde ver
+7. Asla tahmin yürütme veya yorum yapma
+8. Sadece elindeki verilerden yanıt ver"""
             },
             {
                 "role": "user",
@@ -558,13 +571,13 @@ async def process_query(query: str) -> str:
         outputs = llama_model.generate(
             inputs.input_ids,
             max_length=256,
-            max_new_tokens=64,  # Daha kısa yanıtlar için düşürüldü
+            max_new_tokens=64,
             do_sample=True,
-            temperature=0.1,  # Daha tutarlı yanıtlar için düşürüldü
+            temperature=0.1,
             top_p=0.9,
-            top_k=10,  # Daha az çeşitlilik için düşürüldü
-            repetition_penalty=1.5,  # Tekrarları engellemek için artırıldı
-            length_penalty=0.8,  # Kısa yanıtları teşvik etmek için düşürüldü
+            top_k=10,
+            repetition_penalty=1.5,
+            length_penalty=0.8,
             no_repeat_ngram_size=3
         )
         

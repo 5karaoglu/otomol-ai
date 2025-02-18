@@ -508,19 +508,30 @@ async def process_query(query: str) -> str:
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
+        # Toplam hesaplama sorguları için veriyi hazırla
+        if any(word in query.lower() for word in ['toplam', 'tüm', 'hepsi', 'kaç']):
+            total = 0
+            for chunk in chunks:
+                total += chunk['metadata']['arac_cikis']
+            context = f"Ocak ayında toplam {total:,} adet araç satışı gerçekleşti.".replace(",", ".")
+            relevant_chunks = [context]
+        
         # Chat mesajlarını oluştur
         messages = [
             {
                 "role": "system",
                 "content": """Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
 
-1. Her zaman tam ve düzgün Türkçe cümleler kur
-2. Yanıtların anlamlı ve mantıklı olmalı
-3. Gereksiz kelimeler kullanma
-4. Sadece sorulan bilgiyi ver
-5. Sayıları Türk formatında yaz (örnek: 1.234)
-6. Cümlelerin özne-yüklem uyumuna dikkat et
-7. Cevabını tek bir paragraf halinde ver"""
+1. Sadece Türkçe yanıt ver
+2. Her zaman tam ve düzgün Türkçe cümleler kur
+3. Yanıtların anlamlı ve mantıklı olmalı
+4. Gereksiz kelimeler kullanma
+5. Sadece sorulan bilgiyi ver
+6. Sayıları Türk formatında yaz (örnek: 1.234)
+7. Cümlelerin özne-yüklem uyumuna dikkat et
+8. Cevabını tek bir cümle halinde ver
+9. Asla İngilizce kelime kullanma
+10. Dolar, Euro gibi para birimlerinden bahsetme"""
             },
             {
                 "role": "user",
@@ -547,13 +558,13 @@ async def process_query(query: str) -> str:
         outputs = llama_model.generate(
             inputs.input_ids,
             max_length=256,
-            max_new_tokens=128,
+            max_new_tokens=64,  # Daha kısa yanıtlar için düşürüldü
             do_sample=True,
-            temperature=0.3,
+            temperature=0.1,  # Daha tutarlı yanıtlar için düşürüldü
             top_p=0.9,
-            top_k=50,
-            repetition_penalty=1.3,
-            length_penalty=1.0,
+            top_k=10,  # Daha az çeşitlilik için düşürüldü
+            repetition_penalty=1.5,  # Tekrarları engellemek için artırıldı
+            length_penalty=0.8,  # Kısa yanıtları teşvik etmek için düşürüldü
             no_repeat_ngram_size=3
         )
         

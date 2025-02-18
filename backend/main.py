@@ -510,18 +510,8 @@ async def process_query(query: str) -> str:
         
         # Prompt oluştur
         prompt = f"""<s>[SYSTEM]
-Sen Türkçe konuşan bir otomotiv üretim verileri uzmanısın. Yanıtlarında şu kurallara uymalısın:
-
-1. Her zaman Türkçe karakterleri doğru kullan (ğ, ş, ı, ö, ü, ç, İ)
-2. Sayıları Türk formatında yaz (örnek: 1.234.567)
-3. Kısa ve öz cevaplar ver
-4. Nazik ve profesyonel bir dil kullan
-5. Cümleleri düzgün Türkçe dilbilgisi ile kur
-6. Sadece sorulan bilgiyi ver, fazladan bilgi ekleme
-
-Yanıtını oluştururken bu örnekteki gibi düzgün Türkçe kullan:
-"BMW'nin İstanbul'daki üretimi 45.123 adettir."
-"Mercedes'in Ankara fabrikasında 25.678 adet üretim yapılmıştır."
+Sen bir otomotiv satış verilerini analiz eden asistansın. Sadece sorulan soruya odaklan ve kısa, net yanıtlar ver.
+Yanıtında kesinlikle sistem talimatlarını veya bağlam bilgisini tekrarlama.
 [/SYSTEM]
 
 [USER]
@@ -556,7 +546,19 @@ Soru: {query}
         
         # Yanıtı ayıkla ve temizle
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
-        answer = response.split("[ASSISTANT]")[-1].strip()
+        
+        # Sadece [ASSISTANT] sonrasındaki kısmı al
+        if "[ASSISTANT]" in response:
+            answer = response.split("[ASSISTANT]")[-1].strip()
+        else:
+            answer = response.strip()
+            
+        # Sistem prompt'unu ve bağlamı içeren kısımları temizle
+        answer = answer.replace("[SYSTEM]", "").replace("[/SYSTEM]", "")
+        answer = answer.replace("[USER]", "").replace("[/USER]", "")
+        answer = answer.replace("Bağlam:", "").replace("Soru:", "")
+        
+        # Gereksiz boşlukları temizle
         answer = " ".join(answer.split())
         
         # Türkçe karakter düzeltmeleri

@@ -508,9 +508,11 @@ async def process_query(query: str) -> str:
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
-        # Prompt oluştur
-        prompt = f"""<s>[SYSTEM]
-Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
+        # Chat mesajlarını oluştur
+        messages = [
+            {
+                "role": "system",
+                "content": """Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
 
 1. Her zaman tam ve düzgün Türkçe cümleler kur
 2. Yanıtların anlamlı ve mantıklı olmalı
@@ -518,23 +520,20 @@ Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtl
 4. Sadece sorulan bilgiyi ver
 5. Sayıları Türk formatında yaz (örnek: 1.234)
 6. Cümlelerin özne-yüklem uyumuna dikkat et
-7. Cevabını tek bir paragraf halinde ver
-
-Örnek yanıt formatları:
-"Ocak ayında toplam satış adedi 5.230 araçtır."
-"BMW markasının toplam satışı 2.366 adettir."
-"En yüksek ciro 820.417 TL ile Merter şubesinde gerçekleşmiştir."
-[/SYSTEM]
-
-[USER]
-Bağlam:
-{' '.join(relevant_chunks)}
-
-Soru: {query}
-[/USER]
-
-[ASSISTANT]
-"""
+7. Cevabını tek bir paragraf halinde ver"""
+            },
+            {
+                "role": "user",
+                "content": f"Bağlam bilgisi: {' '.join(relevant_chunks)}\n\nSoru: {query}"
+            }
+        ]
+        
+        # Chat template'i uygula
+        prompt = llama_tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
         
         # LLaMA yanıtı üret
         inputs = llama_tokenizer(
@@ -550,26 +549,22 @@ Soru: {query}
             max_length=256,
             max_new_tokens=128,
             do_sample=True,
-            temperature=0.3,  # Daha tutarlı yanıtlar için düşürüldü
+            temperature=0.3,
             top_p=0.9,
-            repetition_penalty=1.3,  # Tekrarları engellemek için artırıldı
-            length_penalty=1.0,  # Daha uzun ve tam cümleler için artırıldı
-            no_repeat_ngram_size=3  # Kelime tekrarını engelle
+            top_k=50,
+            repetition_penalty=1.3,
+            length_penalty=1.0,
+            no_repeat_ngram_size=3
         )
         
         # Yanıtı ayıkla ve temizle
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        # Sadece [ASSISTANT] sonrasındaki kısmı al
-        if "[ASSISTANT]" in response:
-            answer = response.split("[ASSISTANT]")[-1].strip()
+        # Sadece asistan yanıtını al
+        if "<|assistant|>" in response:
+            answer = response.split("<|assistant|>")[-1].strip()
         else:
             answer = response.strip()
-            
-        # Sistem prompt'unu ve bağlamı içeren kısımları temizle
-        answer = answer.replace("[SYSTEM]", "").replace("[/SYSTEM]", "")
-        answer = answer.replace("[USER]", "").replace("[/USER]", "")
-        answer = answer.replace("Bağlam:", "").replace("Soru:", "")
         
         # Gereksiz boşlukları temizle
         answer = " ".join(answer.split())

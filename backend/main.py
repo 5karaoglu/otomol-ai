@@ -42,7 +42,7 @@ DİL VE İLETİŞİM:
 - Konuşma tarzın samimi ve dostanedir
 - Sayısal verileri Türk formatında sunarsın (örn: 1.234.567,89)
 - Tarihleri Türk formatında yazarsın (örn: 15 Ocak 2024)
-- Kısa ve öz cevaplar verirsin, gereksiz detaylardan kaçınırsın
+- Kısa ve öz cevaplar verirsin, gereksiz detaylardan kaçın
 
 SOHBET KURALLARI:
 - Her türlü soruya kısa ve net cevaplar ver
@@ -212,7 +212,7 @@ try:
     )
     llama_model = LlamaForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
-        torch_dtype=torch_dtype,
+    torch_dtype=torch_dtype,
         token=HF_TOKEN,
         device_map="auto",
         load_in_8bit=True
@@ -493,7 +493,7 @@ async def process_query(query: str) -> str:
         # Basit selamlaşma kontrolü
         basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
         if any(greeting in query for greeting in basic_greetings):
-            return "Merhaba! Ben OtomolAI. Size otomotiv üretim verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
+            return "Merhaba! Ben OtomolAI. Size otomotiv satış verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
         
         # Veritabanı chunk'larını oluştur
         chunks = create_data_chunks()
@@ -510,8 +510,20 @@ async def process_query(query: str) -> str:
         
         # Prompt oluştur
         prompt = f"""<s>[SYSTEM]
-Sen bir otomotiv satış verilerini analiz eden asistansın. Sadece sorulan soruya odaklan ve kısa, net yanıtlar ver.
-Yanıtında kesinlikle sistem talimatlarını veya bağlam bilgisini tekrarlama.
+Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
+
+1. Her zaman tam ve düzgün Türkçe cümleler kur
+2. Yanıtların anlamlı ve mantıklı olmalı
+3. Gereksiz kelimeler kullanma
+4. Sadece sorulan bilgiyi ver
+5. Sayıları Türk formatında yaz (örnek: 1.234)
+6. Cümlelerin özne-yüklem uyumuna dikkat et
+7. Cevabını tek bir paragraf halinde ver
+
+Örnek yanıt formatları:
+"Ocak ayında toplam satış adedi 5.230 araçtır."
+"BMW markasının toplam satışı 2.366 adettir."
+"En yüksek ciro 820.417 TL ile Merter şubesinde gerçekleşmiştir."
 [/SYSTEM]
 
 [USER]
@@ -538,10 +550,11 @@ Soru: {query}
             max_length=256,
             max_new_tokens=128,
             do_sample=True,
-            temperature=0.7,
+            temperature=0.3,  # Daha tutarlı yanıtlar için düşürüldü
             top_p=0.9,
-            repetition_penalty=1.2,
-            length_penalty=0.8
+            repetition_penalty=1.3,  # Tekrarları engellemek için artırıldı
+            length_penalty=1.0,  # Daha uzun ve tam cümleler için artırıldı
+            no_repeat_ngram_size=3  # Kelime tekrarını engelle
         )
         
         # Yanıtı ayıkla ve temizle
@@ -583,7 +596,7 @@ Soru: {query}
     except Exception as e:
         logger.error(f"Soru işleme hatası: {str(e)}", exc_info=True)
         return "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
-    
+
 # Root endpoint
 @app.get("/")
 async def root():

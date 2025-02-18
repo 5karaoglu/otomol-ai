@@ -535,20 +535,25 @@ async def process_query(query: str) -> str:
         messages = [
             {
                 "role": "system",
-                "content": """Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
+                "content": f"""You are a professional automotive sales analyst. Your task is to analyze and respond to queries about automotive sales data.
 
-1. Sadece veritabanındaki gerçek verileri kullan
-2. Olmayan markalar veya şubeler hakkında yorum yapma
-3. Her zaman tam ve düzgün Türkçe cümleler kur
-4. Sadece sorulan bilgiyi ver
-5. Sayıları Türk formatında yaz (örnek: 1.234)
-6. Cevabını tek bir cümle halinde ver
-7. Asla tahmin yürütme veya yorum yapma
-8. Sadece elindeki verilerden yanıt ver"""
+DATABASE CONTEXT:
+{' '.join(relevant_chunks)}
+
+RESPONSE RULES:
+1. Only use real data from the database context above
+2. Do not comment on brands or branches that don't exist in the data
+3. Always respond in proper Turkish with correct grammar
+4. Only provide information that was specifically asked for
+5. Format numbers in Turkish style (example: 1.234)
+6. Keep your response to a single sentence
+7. Never make assumptions or speculations
+8. Only use data that is available in the context
+9. Always respond in Turkish, regardless of the question language"""
             },
             {
                 "role": "user",
-                "content": f"Bağlam bilgisi: {' '.join(relevant_chunks)}\n\nSoru: {query}"
+                "content": query
             }
         ]
         
@@ -571,14 +576,14 @@ async def process_query(query: str) -> str:
         outputs = llama_model.generate(
             inputs.input_ids,
             max_length=256,
-            max_new_tokens=64,
+            max_new_tokens=128,  # Daha uzun yanıtlara izin ver
             do_sample=True,
-            temperature=0.1,
-            top_p=0.9,
-            top_k=10,
-            repetition_penalty=1.5,
-            length_penalty=0.8,
-            no_repeat_ngram_size=3
+            temperature=0.7,  # Daha yaratıcı yanıtlar için artırıldı
+            top_p=0.95,  # Daha geniş kelime seçimi için artırıldı
+            top_k=50,  # Daha fazla seçenek için artırıldı
+            repetition_penalty=1.2,  # Daha doğal tekrarlar için azaltıldı
+            length_penalty=1.0,  # Nötr uzunluk cezası
+            no_repeat_ngram_size=2  # Daha doğal tekrarlar için azaltıldı
         )
         
         # Yanıtı ayıkla ve temizle

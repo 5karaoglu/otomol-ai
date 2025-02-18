@@ -4,7 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModel, LlamaForCausalLM, LlamaTokenizer, pipeline # type: ignore
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
 import os
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # Model isimleri
 TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
-GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+GENERATION_MODEL_NAME = "wiroai/turkish-llm-9b"
 HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")  # Token'ı environment variable'dan al
 
 # Sistem promptu
@@ -187,7 +187,7 @@ Sadece sorulan soruya odaklan ve ilgili bilgileri kısa ve öz bir şekilde yan�
 # GPU bellek optimizasyonları
 torch.cuda.empty_cache()
 device = "cuda" if torch.cuda.is_available() else "cpu"
-torch_dtype = torch.float32
+torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
 
 # Türkçe BERT model ve tokenizer yükleme
 try:
@@ -205,23 +205,25 @@ except Exception as e:
 
 # LLaMA modeli yükleme
 try:
-    logger.info("LLaMA modeli yükleniyor...")
-    llama_tokenizer = LlamaTokenizer.from_pretrained(
+    logger.info("WiroAI Türkçe LLM modeli yükleniyor...")
+    tokenizer = AutoTokenizer.from_pretrained(
         GENERATION_MODEL_NAME,
-        token=HF_TOKEN
+        token=HF_TOKEN,
+        trust_remote_code=True
     )
-    llama_model = LlamaForCausalLM.from_pretrained(
+    model = AutoModelForCausalLM.from_pretrained(
         GENERATION_MODEL_NAME,
-    torch_dtype=torch_dtype,
+        torch_dtype=torch_dtype,
         token=HF_TOKEN,
         device_map="auto",
-        load_in_8bit=True
+        load_in_8bit=True,
+        trust_remote_code=True
     )
-    logger.info("LLaMA modeli başarıyla yüklendi")
+    logger.info("WiroAI Türkçe LLM modeli başarıyla yüklendi")
 except Exception as e:
-    logger.error(f"LLaMA model yükleme hatası: {str(e)}")
-    llama_model = None
-    llama_tokenizer = None
+    logger.error(f"Model yükleme hatası: {str(e)}")
+    model = None
+    tokenizer = None
 
 def calculate_similarity(query_embedding: torch.Tensor, context_embedding: torch.Tensor) -> float:
     """İki embedding arasındaki benzerliği hesapla"""
@@ -487,7 +489,7 @@ async def process_query(query: str) -> str:
     logger.info(f"İşlenen soru: {query}")
     
     try:
-        if not llama_model:
+        if not model:
             return "Üzgünüm, model yüklenemediği için şu anda hizmet veremiyorum."
         
         # Basit selamlaşma kontrolü
@@ -531,41 +533,32 @@ async def process_query(query: str) -> str:
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
-        # Chat mesajlarını oluştur
-        messages = [
-            {
-                "role": "system",
-                "content": f"""You are a professional automotive sales analyst. Your task is to analyze and respond to queries about automotive sales data.
+        # Prompt oluştur
+        prompt = f"""<|system|>
+Sen OtomolAI adında, otomotiv satış verileri konusunda uzmanlaşmış bir yapay zeka asistanısın.
 
-DATABASE CONTEXT:
+VERİ BAĞLAMI:
 {' '.join(relevant_chunks)}
 
-RESPONSE RULES:
-1. Only use real data from the database context above
-2. Do not comment on brands or branches that don't exist in the data
-3. Always respond in proper Turkish with correct grammar
-4. Only provide information that was specifically asked for
-5. Format numbers in Turkish style (example: 1.234)
-6. Keep your response to a single sentence
-7. Never make assumptions or speculations
-8. Only use data that is available in the context
-9. Always respond in Turkish, regardless of the question language"""
-            },
-            {
-                "role": "user",
-                "content": query
-            }
-        ]
+YANITLAMA KURALLARI:
+1. Sadece yukarıdaki veri bağlamındaki gerçek verileri kullan
+2. Olmayan marka veya şubeler hakkında yorum yapma
+3. Her zaman düzgün Türkçe dilbilgisi kullan
+4. Sadece sorulan bilgiyi ver
+5. Sayıları Türk formatında yaz (örnek: 1.234)
+6. Yanıtını tek bir cümle halinde ver
+7. Asla tahmin yürütme
+8. Sadece elindeki verileri kullan
+<|endoftext|>
+
+<|user|>
+{query}
+<|endoftext|>
+
+<|assistant|>"""
         
-        # Chat template'i uygula
-        prompt = llama_tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
-        
-        # LLaMA yanıtı üret
-        inputs = llama_tokenizer(
+        # Model yanıtı üret
+        inputs = tokenizer(
             prompt,
             return_tensors="pt",
             max_length=512,
@@ -573,21 +566,22 @@ RESPONSE RULES:
             padding=True
         ).to(device)
         
-        outputs = llama_model.generate(
+        outputs = model.generate(
             inputs.input_ids,
             max_length=256,
-            max_new_tokens=128,  # Daha uzun yanıtlara izin ver
+            max_new_tokens=128,
             do_sample=True,
-            temperature=0.7,  # Daha yaratıcı yanıtlar için artırıldı
-            top_p=0.95,  # Daha geniş kelime seçimi için artırıldı
-            top_k=50,  # Daha fazla seçenek için artırıldı
-            repetition_penalty=1.2,  # Daha doğal tekrarlar için azaltıldı
-            length_penalty=1.0,  # Nötr uzunluk cezası
-            no_repeat_ngram_size=2  # Daha doğal tekrarlar için azaltıldı
+            temperature=0.7,
+            top_p=0.95,
+            top_k=50,
+            repetition_penalty=1.2,
+            length_penalty=1.0,
+            no_repeat_ngram_size=2,
+            pad_token_id=tokenizer.eos_token_id
         )
         
         # Yanıtı ayıkla ve temizle
-        response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
         
         # Sadece asistan yanıtını al
         if "<|assistant|>" in response:

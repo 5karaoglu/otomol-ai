@@ -100,7 +100,7 @@ def create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor:
         
         with torch.no_grad():
             outputs = model(**inputs)
-            # CLS token'ının embedding'ini al
+            # CLS token'ınının embedding'ini al
             embedding = outputs.last_hidden_state[:, 0, :]
             embeddings.append(embedding)
     
@@ -524,11 +524,12 @@ CONTEXT:
 
 Please follow these rules in your response:
 1. ONLY use the data provided in the context above
-2. If the answer cannot be found in the context, say "Üzgünüm, bu konuyla ilgili veritabanında bilgi bulamadım."
+2. If the answer cannot be found in the context, respond with "No information found in the database for this query."
 3. Keep responses focused only on the data
-4. Format numbers in Turkish style (example: 1.234)
-5. Respond in Turkish
-6. Be brief and precise"""
+4. Format numbers with commas for thousands (example: 1,234)
+5. Respond in English
+6. Be brief and precise
+7. Do not add any explanations or pleasantries"""
             },
             {
                 "role": "user",
@@ -577,24 +578,29 @@ Please follow these rules in your response:
         # Gereksiz boşlukları temizle
         answer = " ".join(answer.split())
         
-        # Türkçe karakter düzeltmeleri
-        answer = answer.replace('i̇', 'i').replace('İ', 'İ')
+        logger.info(f"LLM'den gelen İngilizce yanıt: {answer}")
         
-        # Sayı formatı düzeltmeleri
-        import re
-        def format_number(match):
-            number = match.group(0)
-            try:
-                return "{:,.0f}".format(float(number)).replace(",", ".")
-            except:
-                return number
-        
-        answer = re.sub(r'\d+', format_number, answer)
-        
-        if not answer or len(answer) < 5:
-            return "Üzgünüm, sorunuzu anlayamadım. Lütfen başka bir şekilde sorar mısınız?"
+        # İngilizce yanıtı Türkçe'ye çevir
+        try:
+            turkish_answer = translator.translate(answer, src='en', dest='tr').text
+            logger.info(f"Türkçe'ye çevrilmiş yanıt: {turkish_answer}")
             
-        return answer
+            # Sayı formatını Türk formatına çevir
+            import re
+            def format_number(match):
+                number = match.group(0)
+                try:
+                    return "{:,.0f}".format(float(number)).replace(",", ".")
+                except:
+                    return number
+            
+            turkish_answer = re.sub(r'\d+(?:,\d+)?', format_number, turkish_answer)
+            
+            return turkish_answer
+            
+        except Exception as e:
+            logger.error(f"Çeviri hatası: {str(e)}")
+            return "Üzgünüm, yanıt üretilirken bir hata oluştu."
         
     except Exception as e:
         logger.error(f"Soru işleme hatası: {str(e)}", exc_info=True)

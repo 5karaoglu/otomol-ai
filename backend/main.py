@@ -7,6 +7,7 @@ import torch # type: ignore
 from transformers import AutoTokenizer, AutoModel, LlamaForCausalLM, LlamaTokenizer, pipeline # type: ignore
 import speech_recognition as sr # type: ignore
 from gtts import gTTS # type: ignore
+from googletrans import Translator # type: ignore
 import os
 import base64
 import tempfile
@@ -56,6 +57,18 @@ VERİTABANI KULLANIMI:
 - Veritabanı dışındaki konularda da kısa yanıtlar ver
 - Veritabanı bilgisi olmayan konularda kısaca belirt
 - Tahmin yürütmekten kaçın"""
+
+# Çevirmen başlat
+translator = Translator()
+
+def translate_to_english(text: str) -> str:
+    """Türkçe metni İngilizce'ye çevir"""
+    try:
+        translation = translator.translate(text, src='tr', dest='en')
+        return translation.text
+    except Exception as e:
+        logger.error(f"Çeviri hatası: {str(e)}")
+        return text  # Hata durumunda orijinal metni döndür
 
 def count_tokens(text: str) -> int:
     """Verilen metnin token sayısını hesapla"""
@@ -495,14 +508,18 @@ async def process_query(query: str) -> str:
         if any(greeting in query for greeting in basic_greetings):
             return "Merhaba! Ben OtomolAI. Size otomotiv satış verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
         
+        # Soruyu İngilizce'ye çevir
+        english_query = translate_to_english(query)
+        logger.info(f"İngilizce'ye çevrilmiş soru: {english_query}")
+        
         # Veritabanı chunk'larını oluştur
         chunks = create_data_chunks()
         
         if not chunks:
             return "Üzgünüm, veritabanında hiç veri bulunamadı."
         
-        # Soruyla alakalı chunk'ları bul
-        relevant_chunks = find_relevant_chunks(query, chunks)
+        # İngilizce soru ile alakalı chunk'ları bul
+        relevant_chunks = find_relevant_chunks(english_query, chunks)
         logger.info(f"Bulunan alakalı chunk sayısı: {len(relevant_chunks)}")
         
         if not relevant_chunks:
@@ -512,19 +529,23 @@ async def process_query(query: str) -> str:
         messages = [
             {
                 "role": "system",
-                "content": """Sen profesyonel bir otomotiv satış analisti olarak görev yapıyorsun. Yanıtlarında şu kurallara kesinlikle uymalısın:
+                "content": f"""You are a professional automotive sales analyst. Here is the relevant data for the query:
 
-1. Her zaman tam ve düzgün Türkçe cümleler kur
-2. Yanıtların anlamlı ve mantıklı olmalı
-3. Gereksiz kelimeler kullanma
-4. Sadece sorulan bilgiyi ver
-5. Sayıları Türk formatında yaz (örnek: 1.234)
-6. Cümlelerin özne-yüklem uyumuna dikkat et
-7. Cevabını tek bir paragraf halinde ver"""
+CONTEXT:
+{' '.join(relevant_chunks)}
+
+Please follow these rules in your response:
+1. Always respond in Turkish with proper grammar
+2. Keep responses meaningful and logical
+3. Avoid unnecessary words
+4. Only provide the requested information
+5. Format numbers in Turkish style (example: 1.234)
+6. Ensure subject-verb agreement
+7. Provide answer in a single paragraph"""
             },
             {
                 "role": "user",
-                "content": f"Bağlam bilgisi: {' '.join(relevant_chunks)}\n\nSoru: {query}"
+                "content": english_query
             }
         ]
         

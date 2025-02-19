@@ -19,4 +19,5 @@ wsproto>=1.2.0
 httptools>=0.6.1
 h11>=0.14.0
 websocket-client>=1.6.4
-xformers>=0.0.22.post7 
+xformers>=0.0.22.post7
+googletrans==4.0.0-rc1 

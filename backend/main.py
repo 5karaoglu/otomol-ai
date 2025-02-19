@@ -510,6 +510,13 @@ async def process_query(query: str) -> str:
         relevant_chunks = find_relevant_chunks(english_query, chunks)
         logger.info(f"Bulunan alakalı chunk sayısı: {len(relevant_chunks)}")
         
+        # Alakalı chunk'ları detaylı logla
+        logger.info("Bulunan alakalı chunk'lar:")
+        for i, chunk in enumerate(relevant_chunks, 1):
+            logger.info(f"Chunk {i}:")
+            logger.info(f"İçerik: {chunk}")
+            logger.info("-" * 50)
+        
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         

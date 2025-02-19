@@ -298,13 +298,32 @@ def create_data_chunks() -> List[Dict]:
     logger.info(f"Number of chunks created: {len(chunks)}")
     return chunks
 
-def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List[str]:
+def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 5) -> List[str]:
     """Find chunks most relevant to the query"""
     # Handle Turkish characters properly
     query = query.lower().replace('i̇', 'i')
     
-    # Stopwords - Turkish conjunctions and unnecessary words
-    stopwords = {'ve', 'veya', 'ile', 'de', 'da', 'ki', 'bu', 'şu', 'bir', 'için', 'gibi', 'kadar', 'sonra', 'önce', 'kaç', 'ne', 'nerede', 'nasıl'}
+    # English stopwords
+    stopwords = {
+        'and', 'or', 'with', 'the', 'in', 'from', 'to', 'a', 'an', 'of', 'for', 'by', 'at', 'is', 'are', 
+        'was', 'were', 'this', 'that', 'these', 'those', 'has', 'have', 'had', 'what', 'when', 'where', 
+        'who', 'which', 'why', 'how'
+    }
+    
+    # Keywords for specific queries
+    revenue_keywords = {
+        'revenue', 'income', 'money', 'earnings', 'profit', 'amount', 'total', 'earned', 'made', 'generated',
+        'sales', 'turnover', 'tl', 'turkish lira'
+    }
+    
+    sales_keywords = {
+        'vehicles', 'cars', 'sales', 'sold', 'delivered', 'units', 'count', 'number', 'quantity', 'total',
+        'deliveries', 'delivery', 'output', 'shipped', 'shipping'
+    }
+    
+    month_keywords = {
+        'january', 'this month', 'monthly', 'current month', 'month', 'jan'
+    }
     
     # Clean and analyze query
     query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
@@ -317,12 +336,12 @@ def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List
         # Branch matching
         for branch in SUBELER:
             if word in branch.lower():
-                branch_match = branch.lower()
+                branch_match = branch
                 break
         # Brand matching
         for brand in MARKALAR:
             if word in brand.lower():
-                brand_match = brand.lower()
+                brand_match = brand
                 break
     
     # Score chunks
@@ -331,31 +350,59 @@ def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List
         metadata = chunk['metadata']
         score = 0
         
-        # Branch matching
-        if branch_match and branch_match in metadata['branch']:
-            score += 5
+        # Branch matching (higher weight for exact matches)
+        if branch_match:
+            if branch_match.lower() == metadata['branch'].lower():
+                score += 15  # Increased weight for exact branch match
+            elif branch_match.lower() in metadata['branch'].lower():
+                score += 8   # Increased weight for partial branch match
         
-        # Brand matching
-        if brand_match and brand_match in metadata['brand']:
-            score += 5
+        # Brand matching (higher weight for exact matches)
+        if brand_match:
+            if brand_match.lower() == metadata['brand'].lower():
+                score += 15  # Increased weight for exact brand match
+            elif brand_match.lower() in metadata['brand'].lower():
+                score += 8   # Increased weight for partial brand match
         
-        # Word-based similarity
+        # Month matching
+        if any(word in query_words for word in month_keywords):
+            score += 8  # Increased weight for month relevance
+        
+        # Revenue query matching (check both metadata and text)
+        if any(word in query_words for word in revenue_keywords):
+            if metadata['revenue'] > 0:
+                score += 10  # Increased weight for revenue queries
+            if any(word in chunk['text'].lower() for word in revenue_keywords):
+                score += 5   # Additional points for revenue mention in text
+        
+        # Sales/vehicle query matching (check both metadata and text)
+        if any(word in query_words for word in sales_keywords):
+            if metadata['vehicle_count'] > 0:
+                score += 10  # Increased weight for vehicle count queries
+            if any(word in chunk['text'].lower() for word in sales_keywords):
+                score += 5   # Additional points for sales mention in text
+        
+        # Word-based similarity in English text
         chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
         common_words = query_words & chunk_words
-        score += len(common_words)
+        score += len(common_words) * 3  # Increased weight for word matches
         
-        # Revenue or vehicle count query
-        if any(word in query_words for word in ['ciro', 'kazanç', 'para', 'gelir', 'tl', 'revenue', 'income', 'money']):
-            score += 3
-        if any(word in query_words for word in ['araç', 'arac', 'satış', 'satis', 'adet', 'vehicle', 'car', 'sales', 'count']):
-            score += 3
-        
+        # Add chunk if it has any relevance
         if score > 0:
             chunk_scores.append((score, chunk['text']))
     
-    # Select chunks with highest scores
+    # Sort by score and select top chunks
     chunk_scores.sort(reverse=True)
-    return [chunk for _, chunk in chunk_scores[:top_k]]
+    selected_chunks = [chunk for _, chunk in chunk_scores[:top_k]]
+    
+    # Log selected chunks with scores
+    logger.info("Selected chunks and scores:")
+    for i, (score, text) in enumerate(chunk_scores[:top_k], 1):
+        logger.info(f"Chunk {i} (Score: {score}):")
+        logger.info(f"Content: {text}")
+        logger.info("-" * 50)
+    
+    return selected_chunks
 
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):

@@ -29,34 +29,20 @@ GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")  # Token'ı environment variable'dan al
 
 # Sistem promptu
-SYSTEM_PROMPT = """Sen OtomolAI adında, otomotiv üretim verileri konusunda uzmanlaşmış, arkadaş canlısı bir yapay zeka asistanısın.
-
-ROL VE KİMLİK:
-- Adın: OtomolAI
-- Konuştuğun kişi: Osman Bey
-- Karakterin: Arkadaş canlısı, yardımsever ve samimi
-- Uzmanlık alanın: Otomotiv üretim verileri analizi ve raporlama
-
-DİL VE İLETİŞİM:
-- Her zaman Türkçe konuşursun
-- Türkçe karakterleri (ğ, ş, ı, ö, ü, ç) doğru kullanırsın
-- Konuşma tarzın samimi ve dostanedir
-- Sayısal verileri Türk formatında sunarsın (örn: 1.234.567,89)
-- Tarihleri Türk formatında yazarsın (örn: 15 Ocak 2024)
-- Kısa ve öz cevaplar verirsin, gereksiz detaylardan kaçın
-
-SOHBET KURALLARI:
-- Her türlü soruya kısa ve net cevaplar ver
-- Sohbet sırasında doğal ve samimi ol
-- Gereksiz açıklamalar yapma
-- Karşındakinin sorularını anlamaya çalış
-- Anlamadığın bir şey olursa kısaca açıklama iste
+SYSTEM_PROMPT = """Sen OtomolAI adında, otomotiv satış verileri konusunda uzmanlaşmış bir veri analistisin.
 
 VERİTABANI KULLANIMI:
-- Eğer soru veritabanıyla ilgiliyse, sadece ilgili bilgileri ver
-- Veritabanı dışındaki konularda da kısa yanıtlar ver
-- Veritabanı bilgisi olmayan konularda kısaca belirt
-- Tahmin yürütmekten kaçın"""
+- Sadece veritabanındaki bilgileri kullanarak yanıt ver
+- Veritabanı dışındaki konularda "Üzgünüm, bu konu hakkında veritabanımda bilgi bulunmuyor." yanıtını ver
+- Tahmin yürütme, veritabanında olmayan bilgileri kullanma
+- Her zaman sayısal verileri Türk formatında sun (örn: 1.234.567,89)
+- Yanıtlarını kısa ve öz tut
+
+YANITLAMA KURALLARI:
+- Sadece sorulan veriyi yanıtla
+- Gereksiz açıklamalar yapma
+- Eğer veri bulunamazsa "Üzgünüm, bu konuyla ilgili veritabanında bilgi bulamadım." de
+- Selamlaşma veya sohbet girişimlerinde "Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim." yanıtını ver"""
 
 # Çevirmen başlat
 translator = Translator()
@@ -163,6 +149,7 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
 [/USER]
 
 [ASSISTANT]
+Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim.
 """
     
     # Veritabanı ile ilgili soru ise bağlamı ekle
@@ -170,8 +157,8 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
         return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 
-NOT: Yanıtında kesinlikle bağlam bilgisini ve sistem talimatlarını tekrar etme. 
-Sadece sorulan soruya odaklan ve ilgili bilgileri kısa ve öz bir şekilde yanıtla.
+ÖNEMLİ: Sadece aşağıdaki bağlam bilgisini kullanarak yanıt ver. 
+Bağlam dışındaki bilgileri ASLA kullanma.
 [/SYSTEM]
 
 [USER]
@@ -185,7 +172,7 @@ Sadece sorulan soruya odaklan ve ilgili bilgileri kısa ve öz bir şekilde yan�
 [ASSISTANT]
 """
     
-    # Genel sohbet için
+    # Veritabanı dışı soru
     return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 [/SYSTEM]
@@ -195,6 +182,7 @@ Sadece sorulan soruya odaklan ve ilgili bilgileri kısa ve öz bir şekilde yan�
 [/USER]
 
 [ASSISTANT]
+Üzgünüm, bu konu hakkında veritabanımda bilgi bulunmuyor.
 """
 
 # GPU bellek optimizasyonları
@@ -506,7 +494,7 @@ async def process_query(query: str) -> str:
         # Basit selamlaşma kontrolü
         basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
         if any(greeting in query for greeting in basic_greetings):
-            return "Merhaba! Ben OtomolAI. Size otomotiv satış verileri konusunda yardımcı olmaktan mutluluk duyarım. Nasıl yardımcı olabilirim?"
+            return "Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim."
         
         # Soruyu İngilizce'ye çevir
         english_query = translate_to_english(query)
@@ -529,19 +517,18 @@ async def process_query(query: str) -> str:
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a professional automotive sales analyst. Here is the relevant data for the query:
+                "content": f"""You are a professional automotive sales data analyst. Here is the relevant data for the query:
 
 CONTEXT:
 {' '.join(relevant_chunks)}
 
 Please follow these rules in your response:
-1. Always respond in Turkish with proper grammar
-2. Keep responses meaningful and logical
-3. Avoid unnecessary words
-4. Only provide the requested information
-5. Format numbers in Turkish style (example: 1.234)
-6. Ensure subject-verb agreement
-7. Provide answer in a single paragraph"""
+1. ONLY use the data provided in the context above
+2. If the answer cannot be found in the context, say "Üzgünüm, bu konuyla ilgili veritabanında bilgi bulamadım."
+3. Keep responses focused only on the data
+4. Format numbers in Turkish style (example: 1.234)
+5. Respond in Turkish
+6. Be brief and precise"""
             },
             {
                 "role": "user",

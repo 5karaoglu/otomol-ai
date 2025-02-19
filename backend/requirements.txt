@@ -21,4 +21,4 @@ h11<0.10,>=0.8
 httpx>=0.24.1
 websocket-client>=1.6.4
 xformers>=0.0.22.post7
-googletrans==4.0.0-rc1 
+googletrans==3.1.0a0 

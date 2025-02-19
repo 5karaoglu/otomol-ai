@@ -271,88 +271,88 @@ except Exception as e:
     logger.error(f"Veritabanı yükleme hatası: {str(e)}")
 
 def create_data_chunks() -> List[Dict]:
-    """Veritabanındaki kayıtları yapılandırılmış parçalara böl"""
+    """Split database records into structured chunks"""
     chunks = []
     
     if not DATABASE or 'Sheet1' not in DATABASE:
-        logger.error("Veritabanı boş veya hatalı format")
+        logger.error("Database is empty or has invalid format")
         return chunks
     
     for kayit in DATABASE['Sheet1']:
-        # Her kaydı yapılandırılmış bir sözlük olarak sakla
+        # Store each record as a structured dictionary
         chunk = {
-            'text': f"{kayit['Ay']} ayında {kayit['Şube']} şubesinde {kayit['Marka']} markasından {kayit['Araç Çıkış Adedi']} adet araç çıkışı yapıldı ve {kayit['Ciro']} TL ciro elde edildi.",
+            'text': f"In {kayit['Ay']}, {kayit['Araç Çıkış Adedi']} vehicles of {kayit['Marka']} brand were delivered from {kayit['Şube']} branch and generated a revenue of {kayit['Ciro']} TL.",
             'metadata': {
-                'sube': kayit['Şube'].lower(),
-                'marka': kayit['Marka'].lower(),
-                'ay': kayit['Ay'].lower(),
-                'yil': kayit['Yıl'],
-                'arac_cikis': kayit['Araç Çıkış Adedi'],
-                'ciro': kayit['Ciro'],
-                'tarih': kayit['Tarih']
+                'branch': kayit['Şube'].lower(),
+                'brand': kayit['Marka'].lower(),
+                'month': kayit['Ay'].lower(),
+                'year': kayit['Yıl'],
+                'vehicle_count': kayit['Araç Çıkış Adedi'],
+                'revenue': kayit['Ciro'],
+                'date': kayit['Tarih']
             }
         }
         chunks.append(chunk)
     
-    logger.info(f"Oluşturulan chunk sayısı: {len(chunks)}")
+    logger.info(f"Number of chunks created: {len(chunks)}")
     return chunks
 
 def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 3) -> List[str]:
-    """Soruyla en alakalı chunk'ları bul"""
-    # Türkçe karakterleri düzgün işle
+    """Find chunks most relevant to the query"""
+    # Handle Turkish characters properly
     query = query.lower().replace('i̇', 'i')
     
-    # Stopwords - Türkçe bağlaçlar ve gereksiz kelimeler
+    # Stopwords - Turkish conjunctions and unnecessary words
     stopwords = {'ve', 'veya', 'ile', 'de', 'da', 'ki', 'bu', 'şu', 'bir', 'için', 'gibi', 'kadar', 'sonra', 'önce', 'kaç', 'ne', 'nerede', 'nasıl'}
     
-    # Sorguyu temizle ve analiz et
+    # Clean and analyze query
     query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
     
-    # Şube ve marka bilgisini analiz et
-    sube_match = None
-    marka_match = None
+    # Analyze branch and brand information
+    branch_match = None
+    brand_match = None
     
     for word in query_words:
-        # Şube eşleşmesi
-        for sube in SUBELER:
-            if word in sube.lower():
-                sube_match = sube.lower()
+        # Branch matching
+        for branch in SUBELER:
+            if word in branch.lower():
+                branch_match = branch.lower()
                 break
-        # Marka eşleşmesi
-        for marka in MARKALAR:
-            if word in marka.lower():
-                marka_match = marka.lower()
+        # Brand matching
+        for brand in MARKALAR:
+            if word in brand.lower():
+                brand_match = brand.lower()
                 break
     
-    # Chunk'ları skorla
+    # Score chunks
     chunk_scores = []
     for chunk in chunks:
         metadata = chunk['metadata']
         score = 0
         
-        # Şube eşleşmesi
-        if sube_match and sube_match in metadata['sube']:
+        # Branch matching
+        if branch_match and branch_match in metadata['branch']:
             score += 5
         
-        # Marka eşleşmesi
-        if marka_match and marka_match in metadata['marka']:
+        # Brand matching
+        if brand_match and brand_match in metadata['brand']:
             score += 5
         
-        # Kelime bazlı benzerlik
+        # Word-based similarity
         chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
         common_words = query_words & chunk_words
         score += len(common_words)
         
-        # Ciro veya araç sayısı sorgusu
-        if any(word in query_words for word in ['ciro', 'kazanç', 'para', 'gelir', 'tl']):
+        # Revenue or vehicle count query
+        if any(word in query_words for word in ['ciro', 'kazanç', 'para', 'gelir', 'tl', 'revenue', 'income', 'money']):
             score += 3
-        if any(word in query_words for word in ['araç', 'arac', 'satış', 'satis', 'adet']):
+        if any(word in query_words for word in ['araç', 'arac', 'satış', 'satis', 'adet', 'vehicle', 'car', 'sales', 'count']):
             score += 3
         
         if score > 0:
             chunk_scores.append((score, chunk['text']))
     
-    # En yüksek skorlu chunk'ları seç
+    # Select chunks with highest scores
     chunk_scores.sort(reverse=True)
     return [chunk for _, chunk in chunk_scores[:top_k]]
 

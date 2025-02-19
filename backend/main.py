@@ -536,7 +536,12 @@ Please follow these rules in your response:
 4. Format numbers with commas for thousands (example: 1,234)
 5. Respond in English
 6. Be brief and precise
-7. Do not add any explanations or pleasantries"""
+7. Do not add any explanations or pleasantries
+8. For sales questions, include both the number of vehicles and revenue
+9. For revenue questions, always include the TL symbol
+10. For comparison questions, show the data in a clear format
+11. For brand questions, list all brands with their numbers
+12. For branch questions, include all relevant data from that branch"""
             },
             {
                 "role": "user",
@@ -555,17 +560,17 @@ Please follow these rules in your response:
         inputs = llama_tokenizer(
             prompt,
             return_tensors="pt",
-            max_length=512,
+            max_length=2048,
             truncation=True,
             padding=True
         ).to(device)
         
         outputs = llama_model.generate(
             inputs.input_ids,
-            max_length=256,
-            max_new_tokens=128,
+            max_length=2048,
+            max_new_tokens=512,
             do_sample=True,
-            temperature=0.3,
+            temperature=0.1,
             top_p=0.9,
             top_k=50,
             repetition_penalty=1.3,

@@ -77,14 +77,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# GPU kontrolü
-print("GPU kullanılabilir mi:", torch.cuda.is_available())
-print("Kullanılabilir GPU sayısı:", torch.cuda.device_count())
-if torch.cuda.is_available():
-    print("Kullanılan GPU:", torch.cuda.get_device_name(0))
-    print("Kullanılabilir GPU belleği:", torch.cuda.get_device_properties(0).total_memory / 1024**3, "GB")
-    print("Kullanılan GPU belleği:", torch.cuda.memory_allocated(0) / 1024**3, "GB")
-
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):
     try:

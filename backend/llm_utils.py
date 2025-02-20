@@ -16,14 +16,21 @@ class LLMProcessor:
         """
         LLM işlemcisini başlatır ve gerekli modelleri yükler.
         """
+        # GPU kontrolü
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        if self.device == "cuda":
+            logger.info(f"GPU Kullanılıyor: {torch.cuda.get_device_name(0)}")
+            logger.info(f"Kullanılabilir GPU Belleği: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.2f} GB")
+            logger.info(f"Kullanılan GPU Belleği: {torch.cuda.memory_allocated(0) / 1024**3:.2f} GB")
+            # GPU bellek optimizasyonları
+            torch.cuda.empty_cache()
+        else:
+            logger.info("GPU bulunamadı, CPU kullanılıyor")
+        
         self.GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
         self.HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.torch_dtype = torch.float32
         self.translator = Translator()
-        
-        # GPU bellek optimizasyonları
-        torch.cuda.empty_cache()
         
         # LLaMA modeli yükleme
         try:
@@ -44,6 +51,30 @@ class LLMProcessor:
             logger.error(f"LLaMA model yükleme hatası: {str(e)}")
             self.model = None
             self.tokenizer = None
+
+    def get_gpu_info(self) -> dict:
+        """
+        GPU durum bilgilerini döndürür.
+        
+        Returns:
+            dict: GPU bilgileri
+        """
+        gpu_info = {
+            "available": torch.cuda.is_available(),
+            "device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+            "device_name": None,
+            "total_memory": None,
+            "used_memory": None
+        }
+        
+        if gpu_info["available"]:
+            gpu_info.update({
+                "device_name": torch.cuda.get_device_name(0),
+                "total_memory": torch.cuda.get_device_properties(0).total_memory / 1024**3,
+                "used_memory": torch.cuda.memory_allocated(0) / 1024**3
+            })
+        
+        return gpu_info
 
     def translate_to_english(self, text: str) -> str:
         """

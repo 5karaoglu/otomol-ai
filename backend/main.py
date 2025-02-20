@@ -55,20 +55,48 @@ YANITLAMA KURALLARI:
 translator = Translator()
 
 def translate_to_english(text: str) -> str:
-    """Türkçe metni İngilizce'ye çevir"""
+    """
+    Türkçe metni İngilizce'ye çevirir.
+    
+    Args:
+        text (str): Çevrilecek Türkçe metin
+    
+    Returns:
+        str: Çevrilmiş İngilizce metin
+    
+    Raises:
+        Exception: Çeviri sırasında bir hata oluşursa
+    """
     try:
         translation = translator.translate(text, src='tr', dest='en')
         return translation.text
     except Exception as e:
         logger.error(f"Çeviri hatası: {str(e)}")
-        return text  # Hata durumunda orijinal metni döndür
+        return text
 
 def count_tokens(text: str) -> int:
-    """Verilen metnin token sayısını hesapla"""
+    """
+    Verilen metnin token sayısını hesaplar.
+    
+    Args:
+        text (str): Token sayısı hesaplanacak metin
+    
+    Returns:
+        int: Toplam token sayısı
+    """
     return len(llama_tokenizer.encode(text))
 
 def split_into_chunks(text: str, chunk_size: int = 200) -> List[str]:
-    """Metni anlamlı parçalara böl"""
+    """
+    Metni anlamlı parçalara böler.
+    
+    Args:
+        text (str): Bölünecek metin
+        chunk_size (int, optional): Her bir parçanın maksimum kelime sayısı. Varsayılan 200.
+    
+    Returns:
+        List[str]: Bölünmüş metin parçaları
+    """
     sentences = text.split(". ")
     chunks = []
     current_chunk = []
@@ -93,7 +121,17 @@ def split_into_chunks(text: str, chunk_size: int = 200) -> List[str]:
     return chunks
 
 def create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor:
-    """Metinlerin embedding'lerini oluştur"""
+    """
+    Metinlerin vektör temsillerini (embedding) oluşturur.
+    
+    Args:
+        texts (List[str]): Embedding'leri oluşturulacak metinler listesi
+        model: Kullanılacak dil modeli
+        tokenizer: Kullanılacak tokenizer
+    
+    Returns:
+        torch.Tensor: Metin embedding'lerini içeren tensor
+    """
     embeddings = []
     
     for text in texts:
@@ -107,15 +145,23 @@ def create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor:
         
         with torch.no_grad():
             outputs = model(**inputs)
-            # CLS token'ınının embedding'ini al
             embedding = outputs.last_hidden_state[:, 0, :]
             embeddings.append(embedding)
     
     return torch.cat(embeddings, dim=0)
 
 def retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-    """Soruya en alakalı bağlam parçalarını bul"""
-    # Query embedding'i hesapla
+    """
+    Soruya en alakalı bağlam parçalarını bulur.
+    
+    Args:
+        query (str): Kullanıcı sorgusu
+        chunks (List[str]): Aranacak metin parçaları
+        top_k (int, optional): Döndürülecek en alakalı parça sayısı. Varsayılan 3.
+    
+    Returns:
+        List[str]: En alakalı metin parçaları
+    """
     query_inputs = turkish_tokenizer(
         query,
         return_tensors="pt",
@@ -128,24 +174,29 @@ def retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> L
         query_outputs = turkish_model(**query_inputs)
         query_embedding = query_outputs.last_hidden_state[:, 0, :]
     
-    # Chunk embedding'lerini hesapla
     chunk_embeddings = create_embeddings(chunks, turkish_model, turkish_tokenizer)
     
-    # Benzerlik skorlarını hesapla
     similarities = torch.nn.functional.cosine_similarity(
         query_embedding,
         chunk_embeddings
     )
     
-    # En alakalı chunk'ları seç
     top_indices = torch.argsort(similarities, descending=True)[:top_k]
     return [chunks[i] for i in top_indices]
 
 def format_prompt(query: str, context: str, bert_similarity: float) -> str:
-    """LLaMA-2-chat formatında prompt oluştur"""
+    """
+    LLaMA-2-chat formatında prompt oluşturur.
     
-    # Basit selamlaşma kontrolü
-    basic_greetings = ["merhaba", "selam", "günaydın", "iyi günler", "iyi akşamlar", "nasılsın", "naber"]
+    Args:
+        query (str): Kullanıcı sorgusu
+        context (str): İlgili bağlam bilgisi
+        bert_similarity (float): BERT benzerlik skoru
+    
+    Returns:
+        str: Formatlanmış prompt
+    """
+    basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
     if any(greeting in query.lower() for greeting in basic_greetings):
         return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
@@ -159,7 +210,6 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
 Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim.
 """
     
-    # Veritabanı ile ilgili soru ise bağlamı ekle
     if bert_similarity > 0.3:
         return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
@@ -179,7 +229,6 @@ Bağlam dışındaki bilgileri ASLA kullanma.
 [ASSISTANT]
 """
     
-    # Veritabanı dışı soru
     return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 [/SYSTEM]
@@ -279,15 +328,22 @@ except Exception as e:
     logger.error(f"Veritabanı yükleme hatası: {str(e)}")
 
 def create_data_chunks() -> List[Dict]:
-    """Split database records into structured chunks"""
+    """
+    Veritabanı kayıtlarını yapılandırılmış parçalara böler.
+    
+    Returns:
+        List[Dict]: Yapılandırılmış veri parçaları listesi
+        
+    Raises:
+        Exception: Veritabanı boş veya geçersiz formatta ise
+    """
     chunks = []
     
     if not DATABASE or 'Sheet1' not in DATABASE:
-        logger.error("Database is empty or has invalid format")
+        logger.error("Veritabanı boş veya geçersiz formatta")
         return chunks
     
     for kayit in DATABASE['Sheet1']:
-        # Store each record as a structured dictionary
         chunk = {
             'text': f"In {kayit['Ay']}, {kayit['Araç Çıkış Adedi']} vehicles of {kayit['Marka']} brand were delivered from {kayit['Şube']} branch and generated a revenue of {kayit['Ciro']} TL.",
             'metadata': {
@@ -302,22 +358,29 @@ def create_data_chunks() -> List[Dict]:
         }
         chunks.append(chunk)
     
-    logger.info(f"Number of chunks created: {len(chunks)}")
+    logger.info(f"Oluşturulan parça sayısı: {len(chunks)}")
     return chunks
 
 def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 5) -> List[str]:
-    """Find chunks most relevant to the query"""
-    # Handle Turkish characters properly
+    """
+    Sorguyla en alakalı veri parçalarını bulur.
+    
+    Args:
+        query (str): Kullanıcı sorgusu
+        chunks (List[Dict]): Aranacak veri parçaları
+        top_k (int, optional): Döndürülecek en alakalı parça sayısı. Varsayılan 5.
+    
+    Returns:
+        List[str]: En alakalı veri parçaları
+    """
     query = query.lower().replace('i̇', 'i')
     
-    # English stopwords
     stopwords = {
         'and', 'or', 'with', 'the', 'in', 'from', 'to', 'a', 'an', 'of', 'for', 'by', 'at', 'is', 'are', 
         'was', 'were', 'this', 'that', 'these', 'those', 'has', 'have', 'had', 'what', 'when', 'where', 
         'who', 'which', 'why', 'how'
     }
     
-    # Keywords for specific queries
     revenue_keywords = {
         'revenue', 'income', 'money', 'earnings', 'profit', 'amount', 'total', 'earned', 'made', 'generated',
         'sales', 'turnover', 'tl', 'turkish lira'
@@ -332,81 +395,67 @@ def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 5) -> List
         'january', 'this month', 'monthly', 'current month', 'month', 'jan'
     }
     
-    # Clean and analyze query
     query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
     
-    # Analyze branch and brand information
     branch_match = None
     brand_match = None
     
     for word in query_words:
-        # Branch matching
         for branch in SUBELER:
             if word in branch.lower():
                 branch_match = branch
                 break
-        # Brand matching
         for brand in MARKALAR:
             if word in brand.lower():
                 brand_match = brand
                 break
     
-    # Score chunks
     chunk_scores = []
     for chunk in chunks:
         metadata = chunk['metadata']
         score = 0
         
-        # Branch matching (higher weight for exact matches)
         if branch_match:
             if branch_match.lower() == metadata['branch'].lower():
-                score += 15  # Increased weight for exact branch match
+                score += 15
             elif branch_match.lower() in metadata['branch'].lower():
-                score += 8   # Increased weight for partial branch match
+                score += 8
         
-        # Brand matching (higher weight for exact matches)
         if brand_match:
             if brand_match.lower() == metadata['brand'].lower():
-                score += 15  # Increased weight for exact brand match
+                score += 15
             elif brand_match.lower() in metadata['brand'].lower():
-                score += 8   # Increased weight for partial brand match
+                score += 8
         
-        # Month matching
         if any(word in query_words for word in month_keywords):
-            score += 8  # Increased weight for month relevance
+            score += 8
         
-        # Revenue query matching (check both metadata and text)
         if any(word in query_words for word in revenue_keywords):
             if metadata['revenue'] > 0:
-                score += 10  # Increased weight for revenue queries
+                score += 10
             if any(word in chunk['text'].lower() for word in revenue_keywords):
-                score += 5   # Additional points for revenue mention in text
+                score += 5
         
-        # Sales/vehicle query matching (check both metadata and text)
         if any(word in query_words for word in sales_keywords):
             if metadata['vehicle_count'] > 0:
-                score += 10  # Increased weight for vehicle count queries
+                score += 10
             if any(word in chunk['text'].lower() for word in sales_keywords):
-                score += 5   # Additional points for sales mention in text
+                score += 5
         
-        # Word-based similarity in English text
         chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
         common_words = query_words & chunk_words
-        score += len(common_words) * 3  # Increased weight for word matches
+        score += len(common_words) * 3
         
-        # Add chunk if it has any relevance
         if score > 0:
             chunk_scores.append((score, chunk['text']))
     
-    # Sort by score and select top chunks
     chunk_scores.sort(reverse=True)
     selected_chunks = [chunk for _, chunk in chunk_scores[:top_k]]
     
-    # Log selected chunks with scores
-    logger.info("Selected chunks and scores:")
+    logger.info("Seçilen parçalar ve skorları:")
     for i, (score, text) in enumerate(chunk_scores[:top_k], 1):
-        logger.info(f"Chunk {i} (Score: {score}):")
-        logger.info(f"Content: {text}")
+        logger.info(f"Parça {i} (Skor: {score}):")
+        logger.info(f"İçerik: {text}")
         logger.info("-" * 50)
     
     return selected_chunks
@@ -538,6 +587,18 @@ async def websocket_endpoint(websocket: WebSocket):
         raise
 
 async def process_query(query: str) -> str:
+    """
+    Kullanıcı sorgusunu işler ve yanıt üretir.
+    
+    Args:
+        query (str): Kullanıcı sorgusu
+    
+    Returns:
+        str: Üretilen yanıt
+        
+    Raises:
+        Exception: Model yüklenemediğinde veya işlem sırasında hata oluştuğunda
+    """
     query = query.lower().replace('i̇', 'i')
     logger.info(f"İşlenen soru: {query}")
     
@@ -545,26 +606,21 @@ async def process_query(query: str) -> str:
         if not llama_model:
             return "Üzgünüm, model yüklenemediği için şu anda hizmet veremiyorum."
         
-        # Basit selamlaşma kontrolü
         basic_greetings = ["merhaba", "selam", "gunaydin", "iyi gunler", "iyi aksamlar", "nasilsin", "naber"]
         if any(greeting in query for greeting in basic_greetings):
             return "Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim."
         
-        # Soruyu İngilizce'ye çevir
         english_query = translate_to_english(query)
         logger.info(f"İngilizce'ye çevrilmiş soru: {english_query}")
         
-        # Veritabanı chunk'larını oluştur
         chunks = create_data_chunks()
         
         if not chunks:
             return "Üzgünüm, veritabanında hiç veri bulunamadı."
         
-        # İngilizce soru ile alakalı chunk'ları bul
         relevant_chunks = find_relevant_chunks(english_query, chunks)
         logger.info(f"Bulunan alakalı chunk sayısı: {len(relevant_chunks)}")
         
-        # Alakalı chunk'ları detaylı logla
         logger.info("Bulunan alakalı chunk'lar:")
         for i, chunk in enumerate(relevant_chunks, 1):
             logger.info(f"Chunk {i}:")
@@ -574,7 +630,6 @@ async def process_query(query: str) -> str:
         if not relevant_chunks:
             return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
         
-        # Chat mesajlarını oluştur
         messages = [
             {
                 "role": "system",
@@ -603,14 +658,12 @@ Please follow these rules in your response:
             }
         ]
         
-        # Chat template'i uygula
         prompt = llama_tokenizer.apply_chat_template(
             messages,
             tokenize=False,
             add_generation_prompt=True
         )
         
-        # LLaMA yanıtı üret
         inputs = llama_tokenizer(
             prompt,
             return_tensors="pt",
@@ -632,26 +685,21 @@ Please follow these rules in your response:
             no_repeat_ngram_size=3
         )
         
-        # Yanıtı ayıkla ve temizle
         response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
         
-        # Sadece asistan yanıtını al
         if "<|assistant|>" in response:
             answer = response.split("<|assistant|>")[-1].strip()
         else:
             answer = response.strip()
         
-        # Gereksiz boşlukları temizle
         answer = " ".join(answer.split())
         
         logger.info(f"LLM'den gelen İngilizce yanıt: {answer}")
         
-        # İngilizce yanıtı Türkçe'ye çevir
         try:
             turkish_answer = translator.translate(answer, src='en', dest='tr').text
             logger.info(f"Türkçe'ye çevrilmiş yanıt: {turkish_answer}")
             
-            # Sayı formatını Türk formatına çevir
             import re
             def format_number(match):
                 number = match.group(0)

@@ -194,16 +194,13 @@ async def process_query(query: str) -> str:
         if any(greeting in query for greeting in basic_greetings):
             return "Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim."
         
-        english_query = llm_processor.translate_to_english(query)
-        logger.info(f"İngilizce'ye çevrilmiş soru: {english_query}")
-        
         if not DATABASE or 'Sheet1' not in DATABASE:
             return "Üzgünüm, veritabanında hiç veri bulunamadı."
         
         # TODO: RAG sistemi implementasyonu burada yapılacak
         context = ' '.join(DATABASE['Sheet1'])
         
-        return await llm_processor.generate_response(english_query, context)
+        return await llm_processor.generate_response(query, context)
         
     except Exception as e:
         logger.error(f"Soru işleme hatası: {str(e)}", exc_info=True)

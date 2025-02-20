@@ -1,6 +1,5 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from googletrans import Translator
 import logging
 import os
 import re
@@ -29,7 +28,6 @@ class LLMProcessor:
         
         self.GENERATION_MODEL_NAME = "deepseek-ai/deepseek-r1-distill-qwen-32b"
         self.torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-        self.translator = Translator()
         
         # DeepSeek modeli yükleme
         try:
@@ -75,23 +73,6 @@ class LLMProcessor:
         
         return gpu_info
 
-    def translate_to_english(self, text: str) -> str:
-        """
-        Türkçe metni İngilizce'ye çevirir.
-        
-        Args:
-            text (str): Çevrilecek Türkçe metin
-        
-        Returns:
-            str: Çevrilmiş İngilizce metin
-        """
-        try:
-            translation = self.translator.translate(text, src='tr', dest='en')
-            return translation.text
-        except Exception as e:
-            logger.error(f"Çeviri hatası: {str(e)}")
-            return text
-
     def count_tokens(self, text: str) -> int:
         """
         Verilen metnin token sayısını hesaplar.
@@ -121,10 +102,10 @@ class LLMProcessor:
 
 Please analyze the data above and follow these rules in your response:
 1. ONLY use the data provided above
-2. If the answer cannot be found in the data, respond with "No information found in the database for this query."
+2. If the answer cannot be found in the data, respond with "Veritabanında bu sorgu için bilgi bulunamadı."
 3. Keep responses focused only on the data
-4. Format numbers with commas for thousands (example: 1,234)
-5. Respond in English
+4. Format numbers with dots for thousands (example: 1.234)
+5. Respond in Turkish
 6. Be brief and precise
 7. Do not add any explanations or pleasantries
 8. For sales questions, include both the number of vehicles and revenue
@@ -198,25 +179,17 @@ Query: {query}"""
             
             answer = " ".join(answer.split())
             
-            # Türkçe'ye çevir
-            try:
-                turkish_answer = self.translator.translate(answer, src='en', dest='tr').text
-                
-                # Sayıları formatla
-                def format_number(match):
-                    number = match.group(0)
-                    try:
-                        return "{:,.0f}".format(float(number)).replace(",", ".")
-                    except:
-                        return number
-                
-                turkish_answer = re.sub(r'\d+(?:,\d+)?', format_number, turkish_answer)
-                
-                return turkish_answer
-                
-            except Exception as e:
-                logger.error(f"Çeviri hatası: {str(e)}")
-                return "Üzgünüm, yanıt üretilirken bir hata oluştu."
+            # Sayıları formatla
+            def format_number(match):
+                number = match.group(0)
+                try:
+                    return "{:,.0f}".format(float(number)).replace(",", ".")
+                except:
+                    return number
+            
+            answer = re.sub(r'\d+(?:,\d+)?', format_number, answer)
+            
+            return answer
             
         except Exception as e:
             logger.error(f"Yanıt üretme hatası: {str(e)}")

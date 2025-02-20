@@ -34,6 +34,12 @@
 - CORS desteği
 - Güvenli dosya yükleme
 
+### Sistem Bilgileri
+- GPU durum kontrolü
+- Model durum takibi
+- Bellek kullanım analizi
+- Sistem performans izleme
+
 ## 📚 Fonksiyon Açıklamaları
 
 ### LLM İşleme Modülü (`backend/llm_utils.py`)
@@ -145,7 +151,29 @@ process_query(query: str) -> str
 - **Açıklama**: Kullanıcı sorgusunu işler ve yanıt üretir
 - **Kullanım**: Ana sorgu işleme fonksiyonu
 
-### WebSocket Endpoint'leri
+### Backend Endpoint'leri
+
+#### `/system-info` Endpoint
+- **Açıklama**: Sistem durum bilgilerini sağlar
+- **Metod**: GET
+- **Dönüş**:
+  ```json
+  {
+    "status": "success",
+    "gpu": {
+      "available": true,
+      "device_count": 1,
+      "device_name": "NVIDIA GeForce RTX 3080",
+      "total_memory": 10.0,
+      "used_memory": 2.5
+    },
+    "model": {
+      "name": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "device": "cuda",
+      "loaded": true
+    }
+  }
+  ```
 
 #### `/ws` Endpoint
 - **Açıklama**: Gerçek zamanlı ses iletişimi sağlar
@@ -163,6 +191,11 @@ process_query(query: str) -> str
   - Veritabanı güncelleme
 
 ## 🔄 Güncellemeler
+
+### v2.4 (Güncel Sürüm)
+- Sistem bilgileri endpoint'i eklendi (`/system-info`)
+- GPU ve model durum takibi geliştirildi
+- Bellek kullanım analizi eklendi
 
 ### v2.3 (Güncel Sürüm)
 - LLM işlemleri ayrı bir modüle taşındı (`llm_utils.py`)

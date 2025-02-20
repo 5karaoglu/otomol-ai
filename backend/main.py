@@ -214,6 +214,26 @@ async def process_query(query: str) -> str:
 async def root():
     return {"message": "OtomolAI Backend API"}
 
+@app.get("/system-info")
+async def get_system_info():
+    """
+    Sistem bilgilerini döndürür.
+    """
+    try:
+        gpu_info = llm_processor.get_gpu_info()
+        return {
+            "status": "success",
+            "gpu": gpu_info,
+            "model": {
+                "name": llm_processor.GENERATION_MODEL_NAME,
+                "device": llm_processor.device,
+                "loaded": llm_processor.model is not None
+            }
+        }
+    except Exception as e:
+        logger.error(f"Sistem bilgileri alınırken hata: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8001)

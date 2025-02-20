@@ -36,6 +36,51 @@
 
 ## 📚 Fonksiyon Açıklamaları
 
+### Ses İşleme Modülü (`backend/audio_utils.py`)
+
+#### AudioProcessor Sınıfı
+```python
+class AudioProcessor
+```
+- **Açıklama**: Ses işleme işlemlerini yöneten ana sınıf
+- **Özellikler**:
+  - WebM'den WAV'a dönüşüm
+  - Ses tanıma
+  - Metin-ses dönüşümü
+  - Geçici dosya yönetimi
+
+##### WebM'den WAV'a Dönüşüm
+```python
+@staticmethod
+convert_webm_to_wav(webm_path: str) -> str
+```
+- **Açıklama**: WebM formatındaki ses dosyasını WAV formatına dönüştürür
+- **Kullanım**: Ses tanıma için format dönüşümü
+
+##### Ses Tanıma
+```python
+@staticmethod
+recognize_speech(audio_data: bytes) -> tuple[str, list[str]]
+```
+- **Açıklama**: Ses verisini metne dönüştürür
+- **Kullanım**: Kullanıcı ses girişini metne çevirme
+
+##### Metin-Ses Dönüşümü
+```python
+@staticmethod
+text_to_speech(text: str) -> tuple[str, str]
+```
+- **Açıklama**: Metni sese dönüştürür
+- **Kullanım**: Sistem yanıtlarını sesli yanıta çevirme
+
+##### Dosya Temizleme
+```python
+@staticmethod
+cleanup_files(file_paths: list[str]) -> None
+```
+- **Açıklama**: Geçici dosyaları temizler
+- **Kullanım**: İşlem sonrası geçici dosyaları silme
+
 ### Backend Fonksiyonları (`backend/main.py`)
 
 #### Çeviri Fonksiyonları
@@ -121,6 +166,8 @@ process_query(query: str) -> str
 ## 🔄 Güncellemeler
 
 ### v2 (Güncel Sürüm)
+- Ses işleme modülü oluşturuldu (`audio_utils.py`)
+- Kod modüler yapıya geçirilmeye başlandı
 - Türkçe fonksiyon açıklamaları eklendi
 - FEATURES.md dosyası oluşturuldu
 - Cursor yapılandırması eklendi

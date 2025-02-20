@@ -118,14 +118,13 @@ class LLMProcessor:
         Returns:
             str: Formatlanmış prompt
         """
-        system_prompt = """You are a professional automotive sales data analyst. Here is the relevant data for the query:
+        instructions = f"""You are a professional automotive sales data analyst. Here is the relevant data for the query:
 
-CONTEXT:
 {context}
 
-Please follow these rules in your response:
-1. ONLY use the data provided in the context above
-2. If the answer cannot be found in the context, respond with "No information found in the database for this query."
+Please analyze the data above and follow these rules in your response:
+1. ONLY use the data provided above
+2. If the answer cannot be found in the data, respond with "No information found in the database for this query."
 3. Keep responses focused only on the data
 4. Format numbers with commas for thousands (example: 1,234)
 5. Respond in English
@@ -135,13 +134,12 @@ Please follow these rules in your response:
 9. For revenue questions, always include the TL symbol
 10. For comparison questions, show the data in a clear format
 11. For brand questions, list all brands with their numbers
-12. For branch questions, include all relevant data from that branch"""
+12. For branch questions, include all relevant data from that branch
 
-        prompt = f"""<|im_start|>system
-{system_prompt.format(context=context)}
-<|im_end|>
-<|im_start|>user
-{query}
+Query: {query}"""
+
+        prompt = f"""<|im_start|>user
+{instructions}
 <|im_end|>
 <|im_start|>assistant"""
 
@@ -169,7 +167,7 @@ Please follow these rules in your response:
             inputs = self.tokenizer(
                 prompt,
                 return_tensors="pt",
-                max_length=8192,  # Qwen modeli daha uzun sekans destekliyor
+                max_length=8192,
                 truncation=True,
                 padding=True
             ).to(self.device)
@@ -178,9 +176,9 @@ Please follow these rules in your response:
             outputs = self.model.generate(
                 inputs.input_ids,
                 max_length=8192,
-                max_new_tokens=2048,  # Daha uzun yanıtlar için
+                max_new_tokens=2048,
                 do_sample=True,
-                temperature=0.7,
+                temperature=0.6,  # Önerilen sıcaklık değeri
                 top_p=0.95,
                 top_k=50,
                 repetition_penalty=1.1,

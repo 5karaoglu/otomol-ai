@@ -84,104 +84,6 @@ def count_tokens(text: str) -> int:
     """
     return len(llama_tokenizer.encode(text))
 
-def split_into_chunks(text: str, chunk_size: int = 200) -> List[str]:
-    """
-    Metni anlamlı parçalara böler.
-    
-    Args:
-        text (str): Bölünecek metin
-        chunk_size (int, optional): Her bir parçanın maksimum kelime sayısı. Varsayılan 200.
-    
-    Returns:
-        List[str]: Bölünmüş metin parçaları
-    """
-    sentences = text.split(". ")
-    chunks = []
-    current_chunk = []
-    current_length = 0
-    
-    for sentence in sentences:
-        sentence = sentence.strip() + "."
-        sentence_length = len(sentence.split())
-        
-        if current_length + sentence_length > chunk_size:
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-                current_chunk = []
-                current_length = 0
-        
-        current_chunk.append(sentence)
-        current_length += sentence_length
-    
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
-    
-    return chunks
-
-def create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor:
-    """
-    Metinlerin vektör temsillerini (embedding) oluşturur.
-    
-    Args:
-        texts (List[str]): Embedding'leri oluşturulacak metinler listesi
-        model: Kullanılacak dil modeli
-        tokenizer: Kullanılacak tokenizer
-    
-    Returns:
-        torch.Tensor: Metin embedding'lerini içeren tensor
-    """
-    embeddings = []
-    
-    for text in texts:
-        inputs = tokenizer(
-            text,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        ).to(device)
-        
-        with torch.no_grad():
-            outputs = model(**inputs)
-            embedding = outputs.last_hidden_state[:, 0, :]
-            embeddings.append(embedding)
-    
-    return torch.cat(embeddings, dim=0)
-
-def retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]:
-    """
-    Soruya en alakalı bağlam parçalarını bulur.
-    
-    Args:
-        query (str): Kullanıcı sorgusu
-        chunks (List[str]): Aranacak metin parçaları
-        top_k (int, optional): Döndürülecek en alakalı parça sayısı. Varsayılan 3.
-    
-    Returns:
-        List[str]: En alakalı metin parçaları
-    """
-    query_inputs = turkish_tokenizer(
-        query,
-        return_tensors="pt",
-        max_length=512,
-        truncation=True,
-        padding=True
-    ).to(device)
-    
-    with torch.no_grad():
-        query_outputs = turkish_model(**query_inputs)
-        query_embedding = query_outputs.last_hidden_state[:, 0, :]
-    
-    chunk_embeddings = create_embeddings(chunks, turkish_model, turkish_tokenizer)
-    
-    similarities = torch.nn.functional.cosine_similarity(
-        query_embedding,
-        chunk_embeddings
-    )
-    
-    top_indices = torch.argsort(similarities, descending=True)[:top_k]
-    return [chunks[i] for i in top_indices]
-
 def format_prompt(query: str, context: str) -> str:
     """
     LLaMA-2-chat formatında prompt oluşturur.
@@ -310,139 +212,6 @@ try:
     logger.info(f"Yüklenen kayıt sayısı: {len(DATABASE.get('Sheet1', []))}")
 except Exception as e:
     logger.error(f"Veritabanı yükleme hatası: {str(e)}")
-
-def create_data_chunks() -> List[Dict]:
-    """
-    Veritabanı kayıtlarını yapılandırılmış parçalara böler.
-    
-    Returns:
-        List[Dict]: Yapılandırılmış veri parçaları listesi
-        
-    Raises:
-        Exception: Veritabanı boş veya geçersiz formatta ise
-    """
-    chunks = []
-    
-    if not DATABASE or 'Sheet1' not in DATABASE:
-        logger.error("Veritabanı boş veya geçersiz formatta")
-        return chunks
-    
-    for kayit in DATABASE['Sheet1']:
-        chunk = {
-            'text': f"In {kayit['Ay']}, {kayit['Araç Çıkış Adedi']} vehicles of {kayit['Marka']} brand were delivered from {kayit['Şube']} branch and generated a revenue of {kayit['Ciro']} TL.",
-            'metadata': {
-                'branch': kayit['Şube'].lower(),
-                'brand': kayit['Marka'].lower(),
-                'month': kayit['Ay'].lower(),
-                'year': kayit['Yıl'],
-                'vehicle_count': kayit['Araç Çıkış Adedi'],
-                'revenue': kayit['Ciro'],
-                'date': kayit['Tarih']
-            }
-        }
-        chunks.append(chunk)
-    
-    logger.info(f"Oluşturulan parça sayısı: {len(chunks)}")
-    return chunks
-
-def find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 5) -> List[str]:
-    """
-    Sorguyla en alakalı veri parçalarını bulur.
-    
-    Args:
-        query (str): Kullanıcı sorgusu
-        chunks (List[Dict]): Aranacak veri parçaları
-        top_k (int, optional): Döndürülecek en alakalı parça sayısı. Varsayılan 5.
-    
-    Returns:
-        List[str]: En alakalı veri parçaları
-    """
-    query = query.lower().replace('i̇', 'i')
-    
-    stopwords = {
-        'and', 'or', 'with', 'the', 'in', 'from', 'to', 'a', 'an', 'of', 'for', 'by', 'at', 'is', 'are', 
-        'was', 'were', 'this', 'that', 'these', 'those', 'has', 'have', 'had', 'what', 'when', 'where', 
-        'who', 'which', 'why', 'how'
-    }
-    
-    revenue_keywords = {
-        'revenue', 'income', 'money', 'earnings', 'profit', 'amount', 'total', 'earned', 'made', 'generated',
-        'sales', 'turnover', 'tl', 'turkish lira'
-    }
-    
-    sales_keywords = {
-        'vehicles', 'cars', 'sales', 'sold', 'delivered', 'units', 'count', 'number', 'quantity', 'total',
-        'deliveries', 'delivery', 'output', 'shipped', 'shipping'
-    }
-    
-    month_keywords = {
-        'january', 'this month', 'monthly', 'current month', 'month', 'jan'
-    }
-    
-    query_words = set(word.strip('.,?!') for word in query.split() if word.strip('.,?!') not in stopwords)
-    
-    branch_match = None
-    brand_match = None
-    
-    for word in query_words:
-        for branch in SUBELER:
-            if word in branch.lower():
-                branch_match = branch
-                break
-        for brand in MARKALAR:
-            if word in brand.lower():
-                brand_match = brand
-                break
-    
-    chunk_scores = []
-    for chunk in chunks:
-        metadata = chunk['metadata']
-        score = 0
-        
-        if branch_match:
-            if branch_match.lower() == metadata['branch'].lower():
-                score += 15
-            elif branch_match.lower() in metadata['branch'].lower():
-                score += 8
-        
-        if brand_match:
-            if brand_match.lower() == metadata['brand'].lower():
-                score += 15
-            elif brand_match.lower() in metadata['brand'].lower():
-                score += 8
-        
-        if any(word in query_words for word in month_keywords):
-            score += 8
-        
-        if any(word in query_words for word in revenue_keywords):
-            if metadata['revenue'] > 0:
-                score += 10
-            if any(word in chunk['text'].lower() for word in revenue_keywords):
-                score += 5
-        
-        if any(word in query_words for word in sales_keywords):
-            if metadata['vehicle_count'] > 0:
-                score += 10
-            if any(word in chunk['text'].lower() for word in sales_keywords):
-                score += 5
-        
-        chunk_words = set(word.strip('.,?!') for word in chunk['text'].lower().split() if word.strip('.,?!') not in stopwords)
-        common_words = query_words & chunk_words
-        score += len(common_words) * 3
-        
-        if score > 0:
-            chunk_scores.append((score, chunk['text']))
-    
-    chunk_scores.sort(reverse=True)
-    selected_chunks = [chunk for _, chunk in chunk_scores[:top_k]]
-    
-    logger.info("Seçilen parçalar ve skorları:")
-    for i, (score, text) in enumerate(chunk_scores[:top_k], 1):
-        logger.info(f"Parça {i} (Skor: {score}):")
-        logger.info(f"İçerik: {text}")
-        logger.info("-" * 50)
-    
-    return selected_chunks
 
 @app.post("/upload-database")
 async def upload_database(file: UploadFile = File(...)):
@@ -574,22 +343,10 @@ async def process_query(query: str) -> str:
         english_query = translate_to_english(query)
         logger.info(f"İngilizce'ye çevrilmiş soru: {english_query}")
         
-        chunks = create_data_chunks()
-        
-        if not chunks:
+        if not DATABASE or 'Sheet1' not in DATABASE:
             return "Üzgünüm, veritabanında hiç veri bulunamadı."
         
-        relevant_chunks = find_relevant_chunks(english_query, chunks)
-        logger.info(f"Bulunan alakalı chunk sayısı: {len(relevant_chunks)}")
-        
-        logger.info("Bulunan alakalı chunk'lar:")
-        for i, chunk in enumerate(relevant_chunks, 1):
-            logger.info(f"Chunk {i}:")
-            logger.info(f"İçerik: {chunk}")
-            logger.info("-" * 50)
-        
-        if not relevant_chunks:
-            return "Üzgünüm, sorunuzla ilgili veri bulamadım. Lütfen başka bir şekilde sorar mısınız?"
+        # TODO: RAG sistemi implementasyonu burada yapılacak
         
         messages = [
             {
@@ -597,7 +354,7 @@ async def process_query(query: str) -> str:
                 "content": f"""You are a professional automotive sales data analyst. Here is the relevant data for the query:
 
 CONTEXT:
-{' '.join(relevant_chunks)}
+{' '.join(DATABASE['Sheet1'])}
 
 Please follow these rules in your response:
 1. ONLY use the data provided in the context above

@@ -97,33 +97,12 @@ count_tokens(text: str) -> int
 - **Açıklama**: Verilen metnin token sayısını hesaplar
 - **Kullanım**: Model girdi limitlerini kontrol etme
 
-#### Metin Parçalama
-```python
-split_into_chunks(text: str, chunk_size: int = 200) -> List[str]
-```
-- **Açıklama**: Metni anlamlı parçalara böler
-- **Kullanım**: Uzun metinleri işlenebilir parçalara ayırma
-
 #### Prompt Oluşturma
 ```python
 format_prompt(query: str, context: str) -> str
 ```
 - **Açıklama**: LLaMA-2-chat formatında prompt oluşturur
 - **Kullanım**: Model girdisini yapılandırma
-
-#### Veri İşleme
-```python
-create_data_chunks() -> List[Dict]
-```
-- **Açıklama**: Veritabanı kayıtlarını yapılandırılmış parçalara böler
-- **Kullanım**: Veritabanı verilerini işlenebilir formata dönüştürme
-
-#### İlgili Veri Bulma
-```python
-find_relevant_chunks(query: str, chunks: List[Dict], top_k: int = 5) -> List[str]
-```
-- **Açıklama**: Sorguyla en alakalı veri parçalarını bulur
-- **Kullanım**: Kullanıcı sorgularına uygun verileri filtreleme
 
 #### Sorgu İşleme
 ```python
@@ -151,7 +130,16 @@ process_query(query: str) -> str
 
 ## 🔄 Güncellemeler
 
-### v2.1 (Güncel Sürüm)
+### v2.2 (Güncel Sürüm)
+- Chunk işleme fonksiyonları kaldırıldı
+- Modern RAG sistemi için hazırlık yapıldı
+- Planlanan RAG özellikleri:
+  - Akıllı metin bölümleme (RecursiveCharacterTextSplitter)
+  - Vektör veritabanı entegrasyonu (Chroma/FAISS)
+  - Gelişmiş embedding modeli
+  - Hibrit arama sistemi
+
+### v2.1
 - BERT modeli ve ilgili fonksiyonlar kaldırıldı
 - RAG sistemi için hazırlık yapıldı
 - Kod temizliği ve optimizasyonu yapıldı

@@ -1,0 +1,49 @@
+{
+    "formatOnSave": true,
+    "defaultFormatter": "prettier",
+    "formatters": {
+        "python": "black",
+        "javascript": "prettier",
+        "typescript": "prettier",
+        "json": "prettier",
+        "html": "prettier",
+        "css": "prettier"
+    },
+    "linters": {
+        "python": "pylint",
+        "javascript": "eslint",
+        "typescript": "eslint"
+    },
+    "ignore": [
+        "node_modules",
+        "venv",
+        "__pycache__",
+        "*.pyc",
+        ".git",
+        "dist",
+        "build"
+    ],
+    "search": {
+        "excludeDirectories": [
+            "node_modules",
+            "venv",
+            "__pycache__",
+            ".git",
+            "dist",
+            "build"
+        ]
+    },
+    "editor": {
+        "tabSize": 4,
+        "insertSpaces": true,
+        "wordWrap": "on",
+        "rulers": [80, 100],
+        "trimTrailingWhitespace": true,
+        "insertFinalNewline": true
+    },
+    "terminal": {
+        "shell": "/bin/zsh",
+        "fontFamily": "MesloLGS NF",
+        "fontSize": 12
+    }
+} 

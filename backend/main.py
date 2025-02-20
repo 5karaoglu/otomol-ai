@@ -4,9 +4,7 @@ import json
 import random
 from datetime import datetime
 import torch # type: ignore
-from transformers import AutoTokenizer, AutoModel, LlamaForCausalLM, LlamaTokenizer, pipeline # type: ignore
-import speech_recognition as sr # type: ignore
-from gtts import gTTS # type: ignore
+from transformers import LlamaForCausalLM, LlamaTokenizer # type: ignore
 from googletrans import Translator # type: ignore
 import os
 import base64
@@ -32,7 +30,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Model isimleri
-TURKISH_MODEL_NAME = "dbmdz/bert-base-turkish-cased"
 GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")  # Token'ı environment variable'dan al
 
@@ -185,14 +182,13 @@ def retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> L
     top_indices = torch.argsort(similarities, descending=True)[:top_k]
     return [chunks[i] for i in top_indices]
 
-def format_prompt(query: str, context: str, bert_similarity: float) -> str:
+def format_prompt(query: str, context: str) -> str:
     """
     LLaMA-2-chat formatında prompt oluşturur.
     
     Args:
         query (str): Kullanıcı sorgusu
         context (str): İlgili bağlam bilgisi
-        bert_similarity (float): BERT benzerlik skoru
     
     Returns:
         str: Formatlanmış prompt
@@ -211,8 +207,7 @@ def format_prompt(query: str, context: str, bert_similarity: float) -> str:
 Merhaba, size otomotiv satış verileri konusunda yardımcı olabilirim.
 """
     
-    if bert_similarity > 0.3:
-        return f"""<s>[SYSTEM]
+    return f"""<s>[SYSTEM]
 {SYSTEM_PROMPT}
 
 ÖNEMLİ: Sadece aşağıdaki bağlam bilgisini kullanarak yanıt ver. 
@@ -228,18 +223,6 @@ Bağlam dışındaki bilgileri ASLA kullanma.
 [/USER]
 
 [ASSISTANT]
-"""
-    
-    return f"""<s>[SYSTEM]
-{SYSTEM_PROMPT}
-[/SYSTEM]
-
-[USER]
-{query}
-[/USER]
-
-[ASSISTANT]
-Üzgünüm, bu konu hakkında veritabanımda bilgi bulunmuyor.
 """
 
 # GPU bellek optimizasyonları

@@ -104,23 +104,9 @@ split_into_chunks(text: str, chunk_size: int = 200) -> List[str]
 - **Açıklama**: Metni anlamlı parçalara böler
 - **Kullanım**: Uzun metinleri işlenebilir parçalara ayırma
 
-#### Embedding İşlemleri
-```python
-create_embeddings(texts: List[str], model, tokenizer) -> torch.Tensor
-```
-- **Açıklama**: Metinlerin vektör temsillerini oluşturur
-- **Kullanım**: Semantik arama ve benzerlik hesaplama
-
-#### İlgili İçerik Bulma
-```python
-retrieve_relevant_chunks(query: str, chunks: List[str], top_k: int = 3) -> List[str]
-```
-- **Açıklama**: Soruya en alakalı bağlam parçalarını bulur
-- **Kullanım**: Veritabanından ilgili bilgileri çıkarma
-
 #### Prompt Oluşturma
 ```python
-format_prompt(query: str, context: str, bert_similarity: float) -> str
+format_prompt(query: str, context: str) -> str
 ```
 - **Açıklama**: LLaMA-2-chat formatında prompt oluşturur
 - **Kullanım**: Model girdisini yapılandırma
@@ -165,14 +151,19 @@ process_query(query: str) -> str
 
 ## 🔄 Güncellemeler
 
-### v2 (Güncel Sürüm)
+### v2.1 (Güncel Sürüm)
+- BERT modeli ve ilgili fonksiyonlar kaldırıldı
+- RAG sistemi için hazırlık yapıldı
+- Kod temizliği ve optimizasyonu yapıldı
+
+### v2.0
 - Ses işleme modülü oluşturuldu (`audio_utils.py`)
 - Kod modüler yapıya geçirilmeye başlandı
 - Türkçe fonksiyon açıklamaları eklendi
 - FEATURES.md dosyası oluşturuldu
 - Cursor yapılandırması eklendi
 
-### v1
+### v1.0
 - Temel ses tanıma özellikleri
 - FastAPI backend
 - WebSocket desteği

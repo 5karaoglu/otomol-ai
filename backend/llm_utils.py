@@ -1,5 +1,5 @@
 import torch
-from transformers import LlamaForCausalLM, LlamaTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from googletrans import Translator
 import logging
 import os
@@ -27,28 +27,30 @@ class LLMProcessor:
         else:
             logger.info("GPU bulunamadı, CPU kullanılıyor")
         
-        self.GENERATION_MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        self.GENERATION_MODEL_NAME = "deepseek-ai/deepseek-r1-distill-qwen-32b"
         self.HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")
-        self.torch_dtype = torch.float32
+        self.torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         self.translator = Translator()
         
-        # LLaMA modeli yükleme
+        # DeepSeek modeli yükleme
         try:
-            logger.info("LLaMA modeli yükleniyor...")
-            self.tokenizer = LlamaTokenizer.from_pretrained(
+            logger.info("DeepSeek-R1-Distill-Qwen-32B modeli yükleniyor...")
+            self.tokenizer = AutoTokenizer.from_pretrained(
                 self.GENERATION_MODEL_NAME,
-                token=self.HF_TOKEN
+                token=self.HF_TOKEN,
+                trust_remote_code=True
             )
-            self.model = LlamaForCausalLM.from_pretrained(
+            self.model = AutoModelForCausalLM.from_pretrained(
                 self.GENERATION_MODEL_NAME,
                 torch_dtype=self.torch_dtype,
                 token=self.HF_TOKEN,
                 device_map="auto",
+                trust_remote_code=True,
                 load_in_8bit=True
             )
-            logger.info("LLaMA modeli başarıyla yüklendi")
+            logger.info("DeepSeek-R1-Distill-Qwen-32B modeli başarıyla yüklendi")
         except Exception as e:
-            logger.error(f"LLaMA model yükleme hatası: {str(e)}")
+            logger.error(f"DeepSeek-R1-Distill-Qwen-32B model yükleme hatası: {str(e)}")
             self.model = None
             self.tokenizer = None
 
@@ -107,7 +109,7 @@ class LLMProcessor:
 
     def format_prompt(self, query: str, context: str = "") -> str:
         """
-        LLaMA-2-chat formatında prompt oluşturur.
+        DeepSeek-R1-Distill-Qwen formatında prompt oluşturur.
         
         Args:
             query (str): Kullanıcı sorgusu
@@ -116,7 +118,7 @@ class LLMProcessor:
         Returns:
             str: Formatlanmış prompt
         """
-        SYSTEM_PROMPT = """You are a professional automotive sales data analyst. Here is the relevant data for the query:
+        system_prompt = """You are a professional automotive sales data analyst. Here is the relevant data for the query:
 
 CONTEXT:
 {context}
@@ -135,22 +137,15 @@ Please follow these rules in your response:
 11. For brand questions, list all brands with their numbers
 12. For branch questions, include all relevant data from that branch"""
 
-        messages = [
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT.format(context=context)
-            },
-            {
-                "role": "user",
-                "content": query
-            }
-        ]
-        
-        return self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True
-        )
+        prompt = f"""<|im_start|>system
+{system_prompt.format(context=context)}
+<|im_end|>
+<|im_start|>user
+{query}
+<|im_end|>
+<|im_start|>assistant"""
+
+        return prompt
 
     async def generate_response(self, query: str, context: str = "") -> str:
         """
@@ -174,7 +169,7 @@ Please follow these rules in your response:
             inputs = self.tokenizer(
                 prompt,
                 return_tensors="pt",
-                max_length=2048,
+                max_length=8192,  # Qwen modeli daha uzun sekans destekliyor
                 truncation=True,
                 padding=True
             ).to(self.device)
@@ -182,22 +177,27 @@ Please follow these rules in your response:
             # Yanıt üret
             outputs = self.model.generate(
                 inputs.input_ids,
-                max_length=2048,
-                max_new_tokens=512,
+                max_length=8192,
+                max_new_tokens=2048,  # Daha uzun yanıtlar için
                 do_sample=True,
-                temperature=0.1,
-                top_p=0.9,
+                temperature=0.7,
+                top_p=0.95,
                 top_k=50,
-                repetition_penalty=1.3,
+                repetition_penalty=1.1,
                 length_penalty=1.0,
-                no_repeat_ngram_size=3
+                no_repeat_ngram_size=3,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id
             )
             
             # Yanıtı decode et
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            if "<|assistant|>" in response:
-                answer = response.split("<|assistant|>")[-1].strip()
+            # Asistan yanıtını ayıkla
+            if "<|im_start|>assistant" in response:
+                answer = response.split("<|im_start|>assistant")[-1].strip()
+                if "<|im_end|>" in answer:
+                    answer = answer.split("<|im_end|>")[0].strip()
             else:
                 answer = response.strip()
             

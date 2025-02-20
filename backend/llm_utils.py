@@ -28,7 +28,6 @@ class LLMProcessor:
             logger.info("GPU bulunamadı, CPU kullanılıyor")
         
         self.GENERATION_MODEL_NAME = "deepseek-ai/deepseek-r1-distill-qwen-32b"
-        self.HF_TOKEN = os.getenv("HUGGING_FACE_TOKEN")
         self.torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
         self.translator = Translator()
         
@@ -37,13 +36,11 @@ class LLMProcessor:
             logger.info("DeepSeek-R1-Distill-Qwen-32B modeli yükleniyor...")
             self.tokenizer = AutoTokenizer.from_pretrained(
                 self.GENERATION_MODEL_NAME,
-                token=self.HF_TOKEN,
                 trust_remote_code=True
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.GENERATION_MODEL_NAME,
                 torch_dtype=self.torch_dtype,
-                token=self.HF_TOKEN,
                 device_map="auto",
                 trust_remote_code=True,
                 load_in_8bit=True

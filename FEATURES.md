@@ -36,6 +36,47 @@
 
 ## 📚 Fonksiyon Açıklamaları
 
+### LLM İşleme Modülü (`backend/llm_utils.py`)
+
+#### LLMProcessor Sınıfı
+```python
+class LLMProcessor
+```
+- **Açıklama**: LLM işlemlerini yöneten ana sınıf
+- **Özellikler**:
+  - Model yükleme ve yönetimi
+  - Prompt oluşturma
+  - Yanıt üretme
+  - Çeviri işlemleri
+
+##### Model Yönetimi
+```python
+def __init__(self)
+```
+- **Açıklama**: LLM modelini ve gerekli bileşenleri yükler
+- **Kullanım**: Sınıf başlatıldığında otomatik çalışır
+
+##### Çeviri İşlemleri
+```python
+def translate_to_english(self, text: str) -> str
+```
+- **Açıklama**: Türkçe metni İngilizce'ye çevirir
+- **Kullanım**: Kullanıcı sorgularını model için çevirme
+
+##### Prompt Oluşturma
+```python
+def format_prompt(self, query: str, context: str = "") -> str
+```
+- **Açıklama**: LLaMA-2-chat formatında prompt oluşturur
+- **Kullanım**: Model girdisini yapılandırma
+
+##### Yanıt Üretme
+```python
+async def generate_response(self, query: str, context: str = "") -> str
+```
+- **Açıklama**: Verilen sorgu için LLM yanıtı üretir
+- **Kullanım**: Kullanıcı sorgularını yanıtlama
+
 ### Ses İşleme Modülü (`backend/audio_utils.py`)
 
 #### AudioProcessor Sınıfı
@@ -83,13 +124,6 @@ cleanup_files(file_paths: list[str]) -> None
 
 ### Backend Fonksiyonları (`backend/main.py`)
 
-#### Çeviri Fonksiyonları
-```python
-translate_to_english(text: str) -> str
-```
-- **Açıklama**: Türkçe metni İngilizce'ye çevirir
-- **Kullanım**: Kullanıcı sorgularını model için İngilizce'ye çevirme
-
 #### Token İşleme
 ```python
 count_tokens(text: str) -> int
@@ -130,7 +164,13 @@ process_query(query: str) -> str
 
 ## 🔄 Güncellemeler
 
-### v2.2 (Güncel Sürüm)
+### v2.3 (Güncel Sürüm)
+- LLM işlemleri ayrı bir modüle taşındı (`llm_utils.py`)
+- Kod modülerliği artırıldı
+- LLM işlemleri için sınıf yapısı oluşturuldu
+- Bellek yönetimi iyileştirildi
+
+### v2.2
 - Chunk işleme fonksiyonları kaldırıldı
 - Modern RAG sistemi için hazırlık yapıldı
 - Planlanan RAG özellikleri:
